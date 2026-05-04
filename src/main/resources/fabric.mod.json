@@ -7,18 +7,15 @@
   "authors": [],
   "contact": {},
   "license": "All-Rights-Reserved",
-  "environment": "*",
+  "environment": "server",
   "entrypoints": {
-    "fabric-datagen": [
-      "org.auto.lucky_block_server_mod.client.Lucky_block_server_modDataGenerator"
-    ],
-    "client": [
-      "org.auto.lucky_block_server_mod.client.Lucky_block_server_modClient"
-    ],
     "main": [
       "org.auto.lucky_block_server_mod.Lucky_block_server_mod"
     ]
   },
+  "mixins": [
+    "break_lucky_block_mixins.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",

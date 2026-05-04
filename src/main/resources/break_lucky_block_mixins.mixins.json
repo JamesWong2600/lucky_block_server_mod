@@ -4,11 +4,9 @@
   "package": "org.auto.lucky_block_server_mod.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "break_luck_block_mixins"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "overwrites": {
-    "requireAnnotations": true
   }
 }
