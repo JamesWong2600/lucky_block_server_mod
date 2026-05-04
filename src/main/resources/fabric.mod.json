@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "lucky_block_server_mod",
+  "version": "${version}",
+  "name": "lucky_block_server_mod",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-datagen": [
+      "org.auto.lucky_block_server_mod.client.Lucky_block_server_modDataGenerator"
+    ],
+    "client": [
+      "org.auto.lucky_block_server_mod.client.Lucky_block_server_modClient"
+    ],
+    "main": [
+      "org.auto.lucky_block_server_mod.Lucky_block_server_mod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

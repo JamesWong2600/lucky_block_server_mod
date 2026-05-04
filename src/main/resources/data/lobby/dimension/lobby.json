@@ -1,0 +1,23 @@
+{
+  "type": "lobby:lobby",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:plains",
+      "layers": [
+        {
+          "height": 1,
+          "block": "minecraft:grass_block"
+        },
+        {
+          "height": 3,
+          "block": "minecraft:dirt"
+        },
+        {
+          "height": 1,
+          "block": "minecraft:bedrock"
+        }
+      ]
+    }
+  }
+}
