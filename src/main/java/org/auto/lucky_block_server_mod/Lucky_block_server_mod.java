@@ -12,10 +12,12 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
+import org.auto.lucky_block_server_mod.data.player_amount;
 import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
 
 import static org.auto.lucky_block_server_mod.Random_effect.applyRandomEffect;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
+import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
 
 public class Lucky_block_server_mod implements ModInitializer {
     public static final RegistryKey<DimensionOptions> LOBBY_DIMENSION_KEY = RegistryKey.of(
@@ -34,6 +36,7 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        lobby_teleport_register();
         ServerWorldEvents.LOAD.register((server, world) -> {
             if (world.getRegistryKey() == LOBBY_WORLD_KEY && !generated) {
                 generateGlassRoom(world);
@@ -41,6 +44,23 @@ public class Lucky_block_server_mod implements ModInitializer {
             }
         });
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            player_amount.updateRedisCount(server);
+
+        int local = player_amount.getLocalPlayerAmount(server);
+        int global = player_amount.getGlobalPlayerAmount();
+            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                EventScoreboard.updateScoreboard(
+                        player,
+                        EventManager.getStageDisplayName(),
+                        EventManager.getTimeLeft(),
+                        null, // 假設不顯示破壞數
+                        (int) server.getOverworld().getWorldBorder().getSize(),
+                        "全域人數: " + global // 將全域人數顯示在分組欄位
+                );
+            }
+
+        });
 //        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
 //            // 檢查是否為綠寶石原礦
 //            if (state.isOf(Blocks.EMERALD_ORE)) {

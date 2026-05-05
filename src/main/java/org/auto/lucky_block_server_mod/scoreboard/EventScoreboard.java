@@ -11,7 +11,7 @@ public class EventScoreboard {
 
     private static final Map<UUID, List<String>> playerLines = new HashMap<>();
 
-    public static void updateScoreboard(ServerPlayerEntity player, String stage, int time, int brokenCount, int borderSize, String group) {
+    public static void updateScoreboard(ServerPlayerEntity player, String stage, Integer time, Integer brokenCount, Integer borderSize, Integer GlobalPlayerAmount, Integer GroupPlayerAmount, String group) {
         Scoreboard scoreboard = player.getScoreboard();
         ScoreboardObjective objective = scoreboard.getNullableObjective(OBJECTIVE_NAME);
 
@@ -37,11 +37,25 @@ public class EventScoreboard {
         // 2. 定義新的內容
         List<String> newLines = new ArrayList<>();
         newLines.add("§f "); // 分數 6
-        newLines.add("§7現階段: §e" + stage); // 分數 5
-        newLines.add("§7遊戲時間: §a" + time + "s"); // 分數 4
-        newLines.add("§7破壞數量: §d" + brokenCount + "個"); // 分數 3
-        newLines.add("§7邊界大小: §b" + borderSize + "x" + borderSize); // 分數 2
-        newLines.add("§7當前分組: §f" + group); // 分數 1
+        newLines.add("§1現階段: §e" + stage); // 分數 5
+        if (time != null) {
+            newLines.add("§2遊戲時間: §a" + time + "s");
+        }
+        if (brokenCount != null) {
+            newLines.add("§3破壞數量: §d" + brokenCount + "個");
+        }
+        if (borderSize != null) {
+            newLines.add("§4邊界大小: §b" + borderSize + "x" + borderSize);
+        }
+        if (group != null) {
+            newLines.add("§5當前分組: §f" + group);
+        }
+        if (GlobalPlayerAmount != null) {
+            newLines.add("§6當前分組: §f" + GlobalPlayerAmount);
+        }
+        if (GroupPlayerAmount != null) {
+            newLines.add("§7當前分組: §f" + GroupPlayerAmount);
+        }
         newLines.add("§8 "); // 分數 0
 
         // 3. 設定每一行（使用 ScoreHolder）
