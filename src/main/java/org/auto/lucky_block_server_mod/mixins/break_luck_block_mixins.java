@@ -9,12 +9,17 @@ import net.minecraft.server.network.ServerPlayerInteractionManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import org.auto.lucky_block_server_mod.lucky_block_data.LuckBlockData;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 import static org.auto.lucky_block_server_mod.Random_effect.applyRandomEffect;
 
@@ -25,7 +30,7 @@ public abstract class break_luck_block_mixins {
     @Shadow protected ServerWorld world;
 
     @Inject(
-            method = "tryBreakBlock", // 在 Yarn 中，destroyBlock 通常對應為 tryBreakBlock
+            method = "tryBreakBlock",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/block/Block;onBreak(Lnet/minecraft/world/World;Lnet/minecraft/util/math/BlockPos;Lnet/minecraft/block/BlockState;Lnet/minecraft/entity/player/PlayerEntity;)Lnet/minecraft/block/BlockState;"
@@ -36,14 +41,14 @@ public abstract class break_luck_block_mixins {
         BlockState state = this.world.getBlockState(pos);
 
         if (state.isOf(Blocks.EMERALD_ORE)) {
-            // 執行你的幸運方塊邏輯
-            // YourMod.triggerLuckyEffect(this.player, pos);
-            applyRandomEffect(player);
-            // 移除方塊並取消原版掉落
-            this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+            // 調用外部數據類，不再報錯
+            LuckBlockData.addCount(player.getUuid());
 
-            // 讓方法回傳 true 並終止後續邏輯
+            applyRandomEffect(player);
+            this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
             cir.setReturnValue(true);
         }
     }
+
+    // 提供一個公開方法讓你的 Scoreboard 獲取數值
 }

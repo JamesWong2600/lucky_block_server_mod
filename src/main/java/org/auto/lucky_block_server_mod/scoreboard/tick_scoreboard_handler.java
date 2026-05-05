@@ -6,6 +6,8 @@ import org.auto.lucky_block_server_mod.data.player_amount;
 
 import static org.auto.lucky_block_server_mod.data.player_amount.*;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
+import static org.auto.lucky_block_server_mod.flow.game_timer.getTotalSeconds;
+import static org.auto.lucky_block_server_mod.lucky_block_data.LuckBlockData.getBrokenCount;
 
 public class tick_scoreboard_handler {
     private static int tickCounter = 0;
@@ -31,16 +33,30 @@ public class tick_scoreboard_handler {
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                     EventScoreboard.updateScoreboard(
                             player,
-                            null,
+                            "集合階段",
                             null,
                             null, // 假設不顯示破壞數
                             (int) server.getOverworld().getWorldBorder().getSize(),
-                            getGlobalPlayerAmount(),
+                             getGlobalPlayerAmount(),
                             getLocalPlayerAmount(server),
                             SERVER_ID
                     );
+                 }
                 }
-            }
+                if(GetGameFlow()==2){
+                    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                        EventScoreboard.updateScoreboard(
+                                player,
+                                "和平時期",
+                                getTotalSeconds(),
+                                getBrokenCount(player.getUuid()), // 假設不顯示破壞數
+                                (int) server.getOverworld().getWorldBorder().getSize(),
+                                getGlobalPlayerAmount(),
+                                getLocalPlayerAmount(server),
+                                SERVER_ID
+                        );
+                    }
+                }
             }
         });
     }

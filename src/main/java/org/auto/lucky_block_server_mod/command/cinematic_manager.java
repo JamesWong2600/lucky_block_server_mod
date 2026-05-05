@@ -1,5 +1,7 @@
 package org.auto.lucky_block_server_mod.command;
 
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.network.DisconnectionInfo;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.server.MinecraftServer;
@@ -32,6 +34,13 @@ public class cinematic_manager {
 
     public static void startCinematicSequence(ServerPlayerEntity player, ClonePlayerEntity clone, int durationTicks) {
         if (player.isRemoved() || !clone.isAlive()) return;
+        // --- 1. 背包處理：先清空，再給鑽石鎬 ---
+        player.getInventory().clear(); // 清空玩家所有物品、裝備與副手
+
+        ItemStack pickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().insertStack(pickaxe); // 放入鑽石鎬
+
+        player.sendMessage(Text.literal("§c§l[!] §fInventory cleared! Prepared for mining."), false);
 
         UUID uuid = player.getUuid();
         endTickMap.put(uuid, player.getServer().getTicks() + (long) durationTicks);
@@ -99,7 +108,7 @@ public class cinematic_manager {
 
         // 計算下一幀的位置 (線性內插 Lerp)
         // 數值越小運鏡越慢，建議 0.1 ~ 0.2
-        double lerpFactor = 0.15;
+        double lerpFactor = 0.1;
         double nextX = MathHelper.lerp(lerpFactor, playerPos.x, targetPos.x);
         double nextY = MathHelper.lerp(lerpFactor, playerPos.y, targetPos.y);
         double nextZ = MathHelper.lerp(lerpFactor, playerPos.z, targetPos.z);
@@ -117,38 +126,43 @@ public class cinematic_manager {
      * 結束序幕並清理實體
      */
     private static void finishSequence(ServerPlayerEntity player, ClonePlayerEntity clone) {
+        if (player == null || clone == null) return;
+
         // 1. 先歸還鏡頭控制權
         player.setCameraEntity(player);
 
-        // 2. 傳送到 NPC 當前位置 (1.21.4 推薦使用 teleportTo 或標準 teleport)
-        player.teleport(
+        // 2. 構建 TeleportTarget 以取代舊有的 teleport 方法
+        // 目標是克隆體當前的位置與旋轉角度
+        TeleportTarget finishTarget = new TeleportTarget(
                 (ServerWorld) clone.getWorld(),
-                clone.getX(), clone.getY(), clone.getZ(),
-                EnumSet.noneOf(PositionFlag.class),
+                clone.getPos(),
+                player.getVelocity(), // 保持玩家當前的動量
                 clone.getYaw(),
                 clone.getPitch(),
-                true
+                TeleportTarget.NO_OP  // 傳送後不執行額外動作
         );
+
+        // 執行 1.21.4 推薦的傳送方式
+        player.teleportTo(finishTarget);
 
         // 3. 切換回生存模式
         player.changeGameMode(GameMode.SURVIVAL);
 
         // 4. --- 徹底清理 NPC 與 內存 ---
         ServerWorld world = (ServerWorld) clone.getWorld();
-        BlockPos pos = clone.getBlockPos();
-        ChunkPos cp = new ChunkPos(pos);
+        ChunkPos cp = new ChunkPos(clone.getBlockPos());
 
-        // 移除該區塊的強制載入票券 (如果有設置過的話)
+        // 移除區塊票券
         world.getChunkManager().removeTicket(ChunkTicketType.FORCED, cp, 2, cp);
 
-        // 移除實體
+        // 徹底移除克隆體
         clone.discard();
 
-        // 如果 Clone 被加入了玩家列表（虛假連接），需移除以防內存洩漏
+        // 清理虛假玩家列表 (NPC 專用)
         player.getServer().getPlayerManager().getPlayerList().remove(clone);
 
         if (clone.networkHandler != null) {
-            // 1.21.4 使用 DisconnectionInfo 處理斷開
+            // 1.21.4 的斷開連接處理
             clone.networkHandler.onDisconnected(new DisconnectionInfo(Text.literal("Sequence Finished")));
         }
 

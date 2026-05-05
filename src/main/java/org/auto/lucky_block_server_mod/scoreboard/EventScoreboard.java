@@ -39,13 +39,13 @@ public class EventScoreboard {
         // 構建新內容
         List<String> lines = new ArrayList<>();
         lines.add("§f ");
-        lines.add("§1現階段: §e" + stage);
-        if (time != null) lines.add("§2遊戲時間: §a" + time + "s");
-        if (brokenCount != null) lines.add("§3破壞數量: §d" + brokenCount + "個");
-        if (borderSize != null) lines.add("§4邊界大小: §b" + borderSize + "x" + borderSize);
-        if (group != null) lines.add("§5當前分組: §f" + group);
-        if (GlobalPlayerAmount != null) lines.add("§6全域人數: §f" + GlobalPlayerAmount);
-        if (GroupPlayerAmount != null) lines.add("§7分組人數: §f" + GroupPlayerAmount);
+        lines.add("§f現階段: §a" + stage);
+        if (time != null) lines.add("§f遊戲時間: §a" + time + "s");
+        if (brokenCount != null) lines.add("§f破壞數量: §a" + brokenCount + "個");
+        if (borderSize != null) lines.add("§f邊界大小: §a" + borderSize + "x" + borderSize);
+        if (group != null) lines.add("§f當前分組: §a" + group);
+        if (GlobalPlayerAmount != null) lines.add("§f全域人數: §a" + GlobalPlayerAmount);
+        if (GroupPlayerAmount != null) lines.add("§f分組人數: §a" + GroupPlayerAmount);
         lines.add("§8 ");
 
         // --- 修正 2：寫入新行 ---

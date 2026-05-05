@@ -2,32 +2,28 @@ package org.auto.lucky_block_server_mod.command;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.GameMode;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.ChunkStatus;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
-import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.LOBBY_WORLD_KEY;
 import static org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity.spawnClone;
 import static org.auto.lucky_block_server_mod.command.cinematic_manager.startCinematicSequence;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.StartGameFlow;
+import static org.auto.lucky_block_server_mod.flow.countdown_timer.startCountdown;
+import static org.auto.lucky_block_server_mod.flow.game_timer.startTimer;
 
 
 public class startcommand {
@@ -37,19 +33,20 @@ public class startcommand {
                     .requires(source -> source.hasPermissionLevel(2))
                     .then(CommandManager.argument("seconds", IntegerArgumentType.integer(10, 3600))
                             .executes(context -> {
-                                int seconds = IntegerArgumentType.getInteger(context, "seconds");
-                                return startEvent(context.getSource(), seconds);
+                                startCountdown(context.getSource()); // 傳入當前的 source
+
+                                return 1;
                             })
                     )
             );
         });
     }
-    private static int startEvent(ServerCommandSource source, int seconds) {
+    public static int startEvent(ServerCommandSource source, int seconds) {
         MinecraftServer server = source.getServer();
         ServerWorld world = server.getOverworld();
 
         try {
-            StartGameFlow();
+
             server.getPlayerManager().broadcast(Text.literal("§6§l[EVENT] §aMatch Started!"), false);
 
             List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
@@ -62,13 +59,13 @@ public class startcommand {
 
                 if (existingClone != null) {
                     // 已有克隆體，直接進入鏡頭
-                    startCinematicSequence(player, existingClone,200);
+                    startCinematicSequence(player, existingClone,120);
                 } else {
                     // 沒有克隆體，啟動非同步生成流程
                     spawnAtRandomTopPosAsync(player, 800).thenAccept(newClone -> {
                         if (newClone != null) {
                             // 這裡已經回到伺服器主線程，可以安全操作
-                            startCinematicSequence(player, newClone,300);
+                            startCinematicSequence(player, newClone,120);
                         }
                     }).exceptionally(ex -> {
                         ex.printStackTrace();

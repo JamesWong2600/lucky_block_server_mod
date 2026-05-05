@@ -3,21 +3,16 @@ package org.auto.lucky_block_server_mod;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
-import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
-import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
-import org.auto.lucky_block_server_mod.data.player_amount;
-import org.auto.lucky_block_server_mod.flow.timer;
-import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
+import org.auto.lucky_block_server_mod.flow.countdown_timer;
+import org.auto.lucky_block_server_mod.flow.game_timer;
 
-import static org.auto.lucky_block_server_mod.Random_effect.applyRandomEffect;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
@@ -47,12 +42,24 @@ public class Lucky_block_server_mod implements ModInitializer {
                 generateGlassRoom(world);
                 generated = true;
             }
+            ServerWorld overworld = server.getWorld(World.OVERWORLD);
+
+            if (overworld != null) {
+                // 2. 獲取該世界的邊界
+                var border = overworld.getWorldBorder();
+
+                // 3. 進行設置
+                border.setCenter(0, 0);
+                border.setSize(1600.0);
+
+                System.out.println("成功設置 Overworld 邊界");
+            }
         });
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             cinematic_manager.tick(server);
-            timer.tick(server);
-
+            countdown_timer.tick(server);
+            game_timer.game_tick(server);
          });
 //        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
         timer_register();
