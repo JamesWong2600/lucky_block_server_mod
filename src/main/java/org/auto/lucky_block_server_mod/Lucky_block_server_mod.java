@@ -12,12 +12,16 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
+import org.auto.lucky_block_server_mod.command.cinematic_manager;
 import org.auto.lucky_block_server_mod.data.player_amount;
+import org.auto.lucky_block_server_mod.flow.timer;
 import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
 
 import static org.auto.lucky_block_server_mod.Random_effect.applyRandomEffect;
+import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
+import static org.auto.lucky_block_server_mod.scoreboard.tick_scoreboard_handler.timer_register;
 
 public class Lucky_block_server_mod implements ModInitializer {
     public static final RegistryKey<DimensionOptions> LOBBY_DIMENSION_KEY = RegistryKey.of(
@@ -37,30 +41,21 @@ public class Lucky_block_server_mod implements ModInitializer {
     @Override
     public void onInitialize() {
         lobby_teleport_register();
+        command_register();
         ServerWorldEvents.LOAD.register((server, world) -> {
             if (world.getRegistryKey() == LOBBY_WORLD_KEY && !generated) {
                 generateGlassRoom(world);
                 generated = true;
             }
         });
-        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
+
         ServerTickEvents.END_SERVER_TICK.register(server -> {
-            player_amount.updateRedisCount(server);
+            cinematic_manager.tick(server);
+            timer.tick(server);
 
-        int local = player_amount.getLocalPlayerAmount(server);
-        int global = player_amount.getGlobalPlayerAmount();
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                EventScoreboard.updateScoreboard(
-                        player,
-                        EventManager.getStageDisplayName(),
-                        EventManager.getTimeLeft(),
-                        null, // 假設不顯示破壞數
-                        (int) server.getOverworld().getWorldBorder().getSize(),
-                        "全域人數: " + global // 將全域人數顯示在分組欄位
-                );
-            }
-
-        });
+         });
+//        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
+        timer_register();
 //        PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, blockEntity) -> {
 //            // 檢查是否為綠寶石原礦
 //            if (state.isOf(Blocks.EMERALD_ORE)) {
@@ -75,26 +70,26 @@ public class Lucky_block_server_mod implements ModInitializer {
 //        });
     }
 
-    private void onServerTick(MinecraftServer server) {
-        tickCounter++;
-
-        // 每 20 Ticks (1秒) 更新一次計分板，避免造成網路擁堵
-        if (tickCounter >= 20) {
-            tickCounter = 0;
-
-            // 獲取當前活動數據 (這裡假設你有個存放全域變數的地方)
-            String currentStage = "準備時間";
-            int timeLeft = 600;
-            int borderSize = 600;
-
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                // 獲取玩家個人數據
-                int broken = 12;
-                String teamName = "第一組";
-
-                // 更新顯示
-                EventScoreboard.updateScoreboard(player, currentStage, timeLeft, broken, borderSize, teamName);
-            }
-        }
-    }
+//    private void onServerTick(MinecraftServer server) {
+//        tickCounter++;
+//
+//        // 每 20 Ticks (1秒) 更新一次計分板，避免造成網路擁堵
+//        if (tickCounter >= 20) {
+//            tickCounter = 0;
+//
+//            // 獲取當前活動數據 (這裡假設你有個存放全域變數的地方)
+//            String currentStage = "準備時間";
+//            int timeLeft = 600;
+//            int borderSize = 600;
+//
+//            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+//                // 獲取玩家個人數據
+//                int broken = 12;
+//                String teamName = "第一組";
+//
+//                // 更新顯示
+//                EventScoreboard.updateScoreboard(player, currentStage, timeLeft, broken, borderSize, teamName);
+//            }
+//        }
+//    }
 }

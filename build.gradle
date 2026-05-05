@@ -41,7 +41,7 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation 'redis.clients:jedis:5.1.0'
-
+    include 'org.apache.commons:commons-pool2:2.12.0'
     // 關鍵：將 Jedis 打包進 Mod 中，否則伺服器運行時會找不到類別
     include 'redis.clients:jedis:5.1.0'
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"

@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.auto.lucky_block_server_mod.data.player_amount;
 
+import static org.auto.lucky_block_server_mod.data.player_amount.*;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
 
 public class tick_scoreboard_handler {
@@ -22,8 +23,8 @@ public class tick_scoreboard_handler {
                 player_amount.updateRedisCount(server);
 
                 // 2. 獲取數據
-                int local = player_amount.getLocalPlayerAmount(server);
-                int global = player_amount.getGlobalPlayerAmount();
+                int local = getLocalPlayerAmount(server);
+                int global = getGlobalPlayerAmount();
 
                 // 3. 更新所有玩家的計分板
                 if(GetGameFlow()==1){
@@ -34,7 +35,9 @@ public class tick_scoreboard_handler {
                             null,
                             null, // 假設不顯示破壞數
                             (int) server.getOverworld().getWorldBorder().getSize(),
-                            "全域人數: " + global // 將全域人數顯示在分組欄位
+                            getGlobalPlayerAmount(),
+                            getLocalPlayerAmount(server),
+                            SERVER_ID
                     );
                 }
             }

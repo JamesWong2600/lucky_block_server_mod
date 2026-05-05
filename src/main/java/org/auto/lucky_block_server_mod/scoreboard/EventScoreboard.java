@@ -3,6 +3,7 @@ package org.auto.lucky_block_server_mod.scoreboard;
 import net.minecraft.scoreboard.*;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
@@ -11,10 +12,10 @@ public class EventScoreboard {
 
     private static final Map<UUID, List<String>> playerLines = new HashMap<>();
 
-    public static void updateScoreboard(ServerPlayerEntity player, String stage, Integer time, Integer brokenCount, Integer borderSize, Integer GlobalPlayerAmount, Integer GroupPlayerAmount, String group) {
+    public static void updateScoreboard(ServerPlayerEntity player, String stage, Integer time, Integer brokenCount, Integer borderSize, Integer GlobalPlayerAmount, Integer GroupPlayerAmount, @Nullable String group) {
         Scoreboard scoreboard = player.getScoreboard();
         ScoreboardObjective objective = scoreboard.getNullableObjective(OBJECTIVE_NAME);
-
+        final ScoreboardObjective finalObjective = objective;
         if (objective == null) {
             objective = scoreboard.addObjective(
                     OBJECTIVE_NAME,
@@ -27,53 +28,35 @@ public class EventScoreboard {
             scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.SIDEBAR, objective);
         }
 
-        // 1. 先清除該玩家之前的舊行（防止文字變動時留下殘影）
-        if (playerLines.containsKey(player.getUuid())) {
-            for (String oldLine : playerLines.get(player.getUuid())) {
-                scoreboard.removeScore(ScoreHolder.fromName(oldLine), objective);
-            }
-        }
+        // --- 修正 1：獲取該 Objective 下的所有分數並清除 ---
+        // 在 1.21.4 中，使用 getScoreboardEntries(objective) 來獲取
+        // 並透過方法刪除舊的內容
+        scoreboard.getScoreboardEntries(objective).forEach(entry -> {
+            // 使用 entry.holder() 獲取 ScoreHolder
+            scoreboard.removeScore(ScoreHolder.fromName(entry.owner()), finalObjective);
+        });
 
-        // 2. 定義新的內容
-        List<String> newLines = new ArrayList<>();
-        newLines.add("§f "); // 分數 6
-        newLines.add("§1現階段: §e" + stage); // 分數 5
-        if (time != null) {
-            newLines.add("§2遊戲時間: §a" + time + "s");
-        }
-        if (brokenCount != null) {
-            newLines.add("§3破壞數量: §d" + brokenCount + "個");
-        }
-        if (borderSize != null) {
-            newLines.add("§4邊界大小: §b" + borderSize + "x" + borderSize);
-        }
-        if (group != null) {
-            newLines.add("§5當前分組: §f" + group);
-        }
-        if (GlobalPlayerAmount != null) {
-            newLines.add("§6當前分組: §f" + GlobalPlayerAmount);
-        }
-        if (GroupPlayerAmount != null) {
-            newLines.add("§7當前分組: §f" + GroupPlayerAmount);
-        }
-        newLines.add("§8 "); // 分數 0
+        // 構建新內容
+        List<String> lines = new ArrayList<>();
+        lines.add("§f ");
+        lines.add("§1現階段: §e" + stage);
+        if (time != null) lines.add("§2遊戲時間: §a" + time + "s");
+        if (brokenCount != null) lines.add("§3破壞數量: §d" + brokenCount + "個");
+        if (borderSize != null) lines.add("§4邊界大小: §b" + borderSize + "x" + borderSize);
+        if (group != null) lines.add("§5當前分組: §f" + group);
+        if (GlobalPlayerAmount != null) lines.add("§6全域人數: §f" + GlobalPlayerAmount);
+        if (GroupPlayerAmount != null) lines.add("§7分組人數: §f" + GroupPlayerAmount);
+        lines.add("§8 ");
 
-        // 3. 設定每一行（使用 ScoreHolder）
-        for (int i = 0; i < newLines.size(); i++) {
-            String lineText = newLines.get(i);
-            int scoreValue = newLines.size() - 1 - i; // 計算分數，讓第一筆在最上面
-
-            // 關鍵：使用文字內容作為 ScoreHolder，而不是 player 物件
-            scoreboard.getOrCreateScore(ScoreHolder.fromName(lineText), objective).setScore(scoreValue);
+        // --- 修正 2：寫入新行 ---
+        for (int i = 0; i < lines.size(); i++) {
+            int scoreValue = lines.size() - i;
+            setLine(player, objective, lines.get(i), scoreValue);
         }
-
-        // 4. 更新暫存，下次更新時清理
-        playerLines.put(player.getUuid(), newLines);
     }
 
     private static void setLine(ServerPlayerEntity player, ScoreboardObjective obj, String text, int score) {
-        player.getScoreboard().getOrCreateScore(player, obj).setScore(score);
-        // 如果要動態更新文字且不閃爍，通常會搭配 Team 的 Prefix/Suffix
-        // 這裡先提供基礎寫法
+        // 1.21.4 使用 ScoreHolder.fromName(text) 來建立或獲取分數
+        player.getScoreboard().getOrCreateScore(ScoreHolder.fromName(text), obj).setScore(score);
     }
 }

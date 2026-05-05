@@ -11,7 +11,7 @@ import java.util.Set;
 
 public class player_amount {
     private static final JedisPool pool = new JedisPool("localhost", 6379);
-    private static final String SERVER_ID = "server-01"; // 每個子服設定不同的 ID
+    public static final String SERVER_ID = "server-01"; // 每個子服設定不同的 ID
 
     /**
      * 獲取本地伺服器玩家數量
