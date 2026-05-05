@@ -11,14 +11,21 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.Heightmap;
+import net.minecraft.world.chunk.ChunkStatus;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 
 import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.LOBBY_WORLD_KEY;
+import static org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity.spawnClone;
 import static org.auto.lucky_block_server_mod.command.cinematic_manager.startCinematicSequence;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.StartGameFlow;
 
@@ -37,102 +44,103 @@ public class startcommand {
             );
         });
     }
-
     private static int startEvent(ServerCommandSource source, int seconds) {
         MinecraftServer server = source.getServer();
         ServerWorld world = server.getOverworld();
 
-        System.out.println("[DEBUG] --- START EVENT SEQUENCE ---");
-
         try {
-            // 1. 更新活動流程狀態 (假設這是在別處定義的方法)
-            // StartGameFlow();
+            StartGameFlow();
+            server.getPlayerManager().broadcast(Text.literal("§6§l[EVENT] §aMatch Started!"), false);
 
-            // 2. 全服廣播
-            server.getPlayerManager().broadcast(
-                    Text.literal("§6§l[EVENT] §aMatch Started! §eTime Limit: " + seconds + "s"),
-                    false
-            );
-
-            int successCount = 0;
-            int fallbackCount = 0;
-
-            // --- 關鍵修正：複製一份清單，避免 ConcurrentModificationException ---
             List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
 
             for (ServerPlayerEntity player : participants) {
-                // 過濾掉已經是 Clone 的實體 (如果有的話)
-                if (player instanceof ClonePlayerEntity) continue;
+                if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
 
-                String playerName = player.getName().getString();
-                ClonePlayerEntity existingClone = null;
-
-                // 搜尋屬於該玩家的克隆體
-                for (var entity : world.iterateEntities()) {
-                    if (entity instanceof ClonePlayerEntity c) {
-                        if (c.getOwnerUuid() != null && c.getOwnerUuid().equals(player.getUuid())) {
-                            existingClone = c;
-                            break;
-                        }
-                    }
-                }
+                // 搜尋現有的克隆體
+                ClonePlayerEntity existingClone = findExistingClone(world, player);
 
                 if (existingClone != null) {
-                    System.out.println("[DEBUG] Found clone for " + playerName);
-                    startCinematicSequence(player, existingClone);
-                    successCount++;
+                    // 已有克隆體，直接進入鏡頭
+                    startCinematicSequence(player, existingClone,200);
                 } else {
-                    System.err.println("[DEBUG] No clone for " + playerName + ". Attempting spawn...");
-
-                    if (world != null && player != null) {
-                        // 這裡會觸發 spawnClone 並修改原始 PlayerList，但因為我們遍歷的是副本，所以安全
-                        ClonePlayerEntity newClone = ClonePlayerEntity.spawnAtRandomTopPos(player, 800);
+                    // 沒有克隆體，啟動非同步生成流程
+                    spawnAtRandomTopPosAsync(player, 800).thenAccept(newClone -> {
                         if (newClone != null) {
-                            System.out.println("[DEBUG] Fallback spawn success for " + playerName);
-                            startCinematicSequence(player, newClone);
-                            fallbackCount++;
+                            // 這裡已經回到伺服器主線程，可以安全操作
+                            startCinematicSequence(player, newClone,300);
                         }
-                    }
+                    }).exceptionally(ex -> {
+                        ex.printStackTrace();
+                        return null;
+                    });
                 }
             }
 
-            // 3. 播放音效 (1.21.4 需要 .value())
-            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-                p.playSoundToPlayer(SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.MASTER, 1.0f, 1.0f);
-            }
-
-            // 4. 回饋指令執行者
-            final int fSuccess = successCount;
-            final int fFallback = fallbackCount;
-            System.out.println("[DEBUG] --- Finished: Success=" + fSuccess + " Fallback=" + fFallback + " ---");
-            source.sendFeedback(() -> Text.literal("§aEvent Started! Success: " + fSuccess + " Fallback: " + fFallback), true);
+            // 播放音效等後續邏輯...
+            source.sendFeedback(() -> Text.literal("§aEvent Process Started!"), true);
 
         } catch (Exception e) {
-            System.err.println("[DEBUG] CRITICAL ERROR during startEvent:");
             e.printStackTrace();
             return 0;
         }
         return 1;
     }
 
-    public static void startCinematicSequence(ServerPlayerEntity player, ClonePlayerEntity clone) {
-        // 確保玩家 (攝影機) 變為旁觀者，克隆體 (被攝物) 變為生存模式
-        player.changeGameMode(GameMode.SPECTATOR);
-        clone.changeGameMode(GameMode.SURVIVAL);
-
-        // 計算高空攝影機位置
-        double startX = clone.getX();
-        double startY = clone.getY() + 50;
-        double startZ = clone.getZ() - 30;
-
-        // 傳送「玩家本尊」到天上
-        player.teleport((ServerWorld) clone.getWorld(),
-                startX, startY, startZ, EnumSet.noneOf(PositionFlag.class), 0, 90, true);
-
-        // 核心：玩家看著克隆體
-        player.setCameraEntity(clone);
-
-        // 註冊到 Tick 任務中 (假設你有一個 CinematicManager 處理這個)
-        // CinematicManager.register(player, clone);
+    // 輔助方法：尋找克隆體
+    private static ClonePlayerEntity findExistingClone(ServerWorld world, ServerPlayerEntity player) {
+        for (var entity : world.iterateEntities()) {
+            if (entity instanceof ClonePlayerEntity c) {
+                if (player.getUuid().equals(c.getOwnerUuid())) return c;
+            }
+        }
+        return null;
     }
+    public static CompletableFuture<ClonePlayerEntity> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
+        MinecraftServer server = player.getServer();
+        ServerWorld world = player.getServerWorld();
+        BlockPos center = player.getBlockPos();
+
+        Random random = new Random();
+        int randomX = center.getX() + (random.nextInt(radius * 2 + 1) - radius);
+        int randomZ = center.getZ() + (random.nextInt(radius * 2 + 1) - radius);
+        ChunkPos chunkPos = new ChunkPos(randomX >> 4, randomZ >> 4);
+
+        // 1. 向伺服器請求非同步載入區塊
+        return world.getChunkManager()
+                .getChunkFutureSyncOnMainThread(chunkPos.x, chunkPos.z, ChunkStatus.FULL, true)
+                .thenApplyAsync(either -> {
+                    // 2. 這裡已經是在主線程執行，且區塊已載入完成
+                    int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, randomX, randomZ);
+                    if (topY < world.getBottomY()) topY = world.getSeaLevel();
+
+                    BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
+
+                    // 3. 呼叫原本的生成方法
+                    return spawnClone(server, world, player.getName().getString(), player.getUuid(), targetPos);
+                }, server); // 確保在伺服器主線程回調
+    }
+
+
+//    public static void startCinematicSequence(ServerPlayerEntity player, ClonePlayerEntity clone) {
+//        // 1. 立即更改模式與傳送
+//        player.changeGameMode(GameMode.SPECTATOR);
+//        clone.changeGameMode(GameMode.SURVIVAL);
+//
+//        double startX = clone.getX();
+//        double startY = clone.getY() + 50;
+//        double startZ = clone.getZ() - 30;
+//
+//        player.teleport((ServerWorld) clone.getWorld(),
+//                startX, startY, startZ, EnumSet.noneOf(PositionFlag.class), 0, 90, true);
+//
+//        // 2. 關鍵修正：將「設定攝影機」延遲到下一 Tick 執行
+//        // 這能確保 Teleport 和 Spawn 的實體已經在 SectionManager 中完全註冊
+//        player.getServer().execute(() -> {
+//            if (player.isAlive() && clone.isAlive()) {
+//                player.setCameraEntity(clone);
+//                System.out.println("[DEBUG] Camera linked for " + player.getName().getString());
+//            }
+//        });
+//    }
 }

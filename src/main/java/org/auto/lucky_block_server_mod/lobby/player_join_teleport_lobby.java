@@ -5,7 +5,9 @@ import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.TeleportTarget;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
 
@@ -28,17 +30,18 @@ public class player_join_teleport_lobby {
                 ServerPlayerEntity player = handler.player;
                 ServerWorld world = server.getWorld(LOBBY_WORLD_KEY); // 假設大廳在主世界
 
-                player.changeGameMode(GameMode.ADVENTURE);
-                // 1. 執行傳送
-                // 使用 teleport 方法可以確保跨維度也能正確處理
-                player.teleport(
+
+
+                TeleportTarget target = new TeleportTarget(
                         world,
-                        LOBBY_X, LOBBY_Y, LOBBY_Z,
-                        EnumSet.noneOf(PositionFlag.class), // 標記：不使用相對座標
-                        LOBBY_YAW,
-                        LOBBY_PITCH,
-                        true // resetCamera: 是否重置視角
+                        new Vec3d(LOBBY_X, LOBBY_Y, LOBBY_Z),
+                        Vec3d.ZERO, 0.0f, 90.0f, TeleportTarget.NO_OP
                 );
+
+                player.getServer().execute(() -> {
+                    player.teleportTo(target);
+                    player.changeGameMode(GameMode.ADVENTURE);
+                });
                 ClonePlayerEntity.spawnAtRandomTopPos(player, 800);
                 // 2. 發送歡迎訊息
                 player.sendMessage(Text.literal("§e歡迎參加幸運方塊活動！已將你傳送至大廳。"), false);

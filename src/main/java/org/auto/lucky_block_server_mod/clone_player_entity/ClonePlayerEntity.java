@@ -14,6 +14,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.Heightmap;
+import net.minecraft.world.chunk.ChunkStatus;
 
 import java.util.Random;
 import java.util.UUID;
@@ -38,17 +39,29 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
      */
     public static ClonePlayerEntity spawnAtRandomTopPos(ServerPlayerEntity player, int radius) {
         MinecraftServer server = player.getServer();
-        ServerWorld world = player.getServerWorld();
+        // 建議使用 player 所在的維度，而非鎖死 Overworld
+        ServerWorld world = player.getServer().getOverworld();
         BlockPos center = player.getBlockPos();
 
         Random random = new Random();
         int randomX = center.getX() + (random.nextInt(radius * 2 + 1) - radius);
         int randomZ = center.getZ() + (random.nextInt(radius * 2 + 1) - radius);
 
-        int topY = world.getTopY(Heightmap.Type.WORLD_SURFACE, randomX, randomZ);
+        // 1. 強制載入區塊到 FULL 狀態 (這會確保 Heightmap 已建立)
+        // getChunk 會阻塞直到區塊載入完成
+        world.getChunk(randomX >> 4, randomZ >> 4, ChunkStatus.FULL, true);
+
+        // 2. 使用 MOTION_BLOCKING 獲取最高點
+        // 此時區塊已在記憶體中，getTopY 將回傳正確數值
+        int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, randomX, randomZ);
+
+        // 3. 安全邊界檢查
+        if (topY < world.getBottomY()) {
+            topY = world.getSeaLevel(); // 如果還是失敗，至少放在海平面
+        }
+
         BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
 
-        // 使用玩家的名字和 UUID 來生成克隆體
         return spawnClone(server, world, player.getName().getString(), player.getUuid(), targetPos);
     }
 
