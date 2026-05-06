@@ -7,6 +7,9 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
+import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.currentMspt;
+import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getPlayerPing;
+
 public class EventScoreboard {
     private static final String OBJECTIVE_NAME = "lucky_event";
 
@@ -42,10 +45,13 @@ public class EventScoreboard {
         lines.add("§f現階段: §a" + stage);
         if (time != null) lines.add("§f遊戲時間: §a" + time + "s");
         if (brokenCount != null) lines.add("§f破壞數量: §a" + brokenCount + "個");
+        if (brokenCount != null) lines.add("§f殺敵數量: §a" + brokenCount + "個");
         if (borderSize != null) lines.add("§f邊界大小: §a" + borderSize + "x" + borderSize);
         if (group != null) lines.add("§f當前分組: §a" + group);
         if (GlobalPlayerAmount != null) lines.add("§f全域人數: §a" + GlobalPlayerAmount);
         if (GroupPlayerAmount != null) lines.add("§f分組人數: §a" + GroupPlayerAmount);
+        if (currentMspt != -1) lines.add("§fMSPT: §a" + currentMspt);
+        lines.add("§f網路延遲: §a" + getPlayerPing(player) + "ms");
         lines.add("§8 ");
 
         // --- 修正 2：寫入新行 ---

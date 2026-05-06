@@ -1,6 +1,8 @@
 package org.auto.lucky_block_server_mod;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.minecraft.registry.RegistryKey;
@@ -13,10 +15,13 @@ import org.auto.lucky_block_server_mod.command.cinematic_manager;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
 
+import static org.auto.lucky_block_server_mod.anti_xray.anti_xray.hideNonExposedOres;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
+import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getCurrentMspt;
 import static org.auto.lucky_block_server_mod.scoreboard.tick_scoreboard_handler.timer_register;
+import static org.auto.lucky_block_server_mod.server_init.server_initer;
 
 public class Lucky_block_server_mod implements ModInitializer {
     public static final RegistryKey<DimensionOptions> LOBBY_DIMENSION_KEY = RegistryKey.of(
@@ -32,16 +37,21 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     private boolean generated = false;
     private int tickCounter = 0;
+    public static double currentMspt = -1;
+
 
     @Override
     public void onInitialize() {
         lobby_teleport_register();
         command_register();
-        ServerWorldEvents.LOAD.register((server, world) -> {
-            if (world.getRegistryKey() == LOBBY_WORLD_KEY && !generated) {
-                generateGlassRoom(world);
-                generated = true;
-            }
+        server_initer();
+//        ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
+//            if (!world.isClient()) {
+//                hideNonExposedOres(world, chunk);
+//            }
+//        });
+
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             ServerWorld overworld = server.getWorld(World.OVERWORLD);
 
             if (overworld != null) {
@@ -50,9 +60,15 @@ public class Lucky_block_server_mod implements ModInitializer {
 
                 // 3. 進行設置
                 border.setCenter(0, 0);
-                border.setSize(1600.0);
+                border.setMaxRadius(800);
 
-                System.out.println("成功設置 Overworld 邊界");
+                System.out.println("SUCESS BOARDER");
+            }
+        });
+        ServerWorldEvents.LOAD.register((server, world) -> {
+            if (world.getRegistryKey() == LOBBY_WORLD_KEY && !generated) {
+                generateGlassRoom(world);
+                generated = true;
             }
         });
 
@@ -60,6 +76,7 @@ public class Lucky_block_server_mod implements ModInitializer {
             cinematic_manager.tick(server);
             countdown_timer.tick(server);
             game_timer.game_tick(server);
+            currentMspt = getCurrentMspt(server);
          });
 //        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
         timer_register();

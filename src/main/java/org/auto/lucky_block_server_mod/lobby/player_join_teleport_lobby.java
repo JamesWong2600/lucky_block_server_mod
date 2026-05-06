@@ -28,7 +28,8 @@ public class player_join_teleport_lobby {
         public static void lobby_teleport_register() {
             ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
                 ServerPlayerEntity player = handler.player;
-                ServerWorld world = server.getWorld(LOBBY_WORLD_KEY); // 假設大廳在主世界
+               ServerWorld world = server.getWorld(LOBBY_WORLD_KEY); // 假設大廳在主世界
+                //ServerWorld world = server.getOverworld();
 
 
 
