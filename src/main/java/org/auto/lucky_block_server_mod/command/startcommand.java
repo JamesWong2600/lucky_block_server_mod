@@ -52,6 +52,7 @@ public class startcommand {
             List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
 
             for (ServerPlayerEntity player : participants) {
+                if(player.hasPermissionLevel(4)) return 0;
                 if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
 
                 // 搜尋現有的克隆體

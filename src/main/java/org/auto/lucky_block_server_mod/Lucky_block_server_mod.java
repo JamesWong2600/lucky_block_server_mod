@@ -11,12 +11,17 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
+import org.auto.lucky_block_server_mod.cache.DataMap;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
 
+import java.util.concurrent.CompletableFuture;
+
 import static org.auto.lucky_block_server_mod.anti_xray.anti_xray.hideNonExposedOres;
+import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
+import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
 import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getCurrentMspt;
@@ -40,13 +45,42 @@ public class Lucky_block_server_mod implements ModInitializer {
     private int tickCounter = 0;
     public static double currentMspt = -1;
 
-
+    public static final DataMap DATA_MANAGER = new DataMap();
     @Override
+
     public void onInitialize() {
+        DATA_MANAGER.initMongo("mongodb://admin:19431231BBwongwaihung@192.168.1.102:27017", "playerdataset", "playerdataset");
+
+        // 2. 等待 MongoDB 連接建立（可選，確保連接成功）
+//        try {
+//            //Thread.sleep(100);
+//            System.out.println("✓ MongoDB is ready and connected");// 給 MongoDB 一點時間建立連接
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+
+
         lobby_teleport_register();
         command_register();
         server_initer();
         death_to_specttor();
+        //DATA_MANAGER.initMongo("mongodb://192.168.1.102:27017", "playerdataset", "playerdataset");
+
+        // 2. 註冊定期 Flush (例如每 5 分鐘)
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
+            if (server.getTicks() % 20 == 0) {
+                if (GetGameFlow() == 2) {
+                    // 檢查 CooldownManager 內的超時邏輯
+                    checkTimeouts();
+                }
+            }
+
+            // 你原本的每 5 秒數據 Flush
+            if (server.getTicks() % 100 == 0) {
+                CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);
+            }
+        });
 //        ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
 //            if (!world.isClient()) {
 //                hideNonExposedOres(world, chunk);

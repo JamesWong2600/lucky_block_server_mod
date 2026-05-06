@@ -42,6 +42,14 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation 'redis.clients:jedis:5.1.0'
     include 'org.apache.commons:commons-pool2:2.12.0'
+    implementation "org.mongodb:mongodb-driver-sync:5.1.0"
+
+    // 重要：使用 include 讓 Fabric Loader 在執行時能找到它
+    include "org.mongodb:mongodb-driver-sync:5.1.0"
+
+    // MongoDB 依賴的 Bson 庫通常會自動包含，但如果還是報錯，手動加上：
+    include "org.mongodb:bson:5.1.0"
+    include "org.mongodb:mongodb-driver-core:5.1.0"
     // 關鍵：將 Jedis 打包進 Mod 中，否則伺服器運行時會找不到類別
     include 'redis.clients:jedis:5.1.0'
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
