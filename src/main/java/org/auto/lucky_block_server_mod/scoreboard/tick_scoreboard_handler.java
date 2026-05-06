@@ -36,7 +36,7 @@ public class tick_scoreboard_handler {
                             "集合階段",
                             null,
                             null, // 假設不顯示破壞數
-                            (int) server.getOverworld().getWorldBorder().getSize(),
+                            (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                              getGlobalPlayerAmount(),
                             getLocalPlayerAmount(server),
                             SERVER_ID
@@ -50,7 +50,7 @@ public class tick_scoreboard_handler {
                                 "和平時期",
                                 getTotalSeconds(),
                                 getBrokenCount(player.getUuid()), // 假設不顯示破壞數
-                                (int) server.getOverworld().getWorldBorder().getSize(),
+                                (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),
                                 SERVER_ID

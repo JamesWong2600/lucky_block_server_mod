@@ -1,5 +1,7 @@
 package org.auto.lucky_block_server_mod.command;
 
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.DisconnectionInfo;
@@ -39,6 +41,15 @@ public class cinematic_manager {
 
         ItemStack pickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
         player.getInventory().insertStack(pickaxe); // 放入鑽石鎬
+        StatusEffectInstance nightVision = new StatusEffectInstance(
+                StatusEffects.NIGHT_VISION,
+                999999999, // 60 秒
+                0,
+                false,
+                false
+        );
+
+        player.addStatusEffect(nightVision);
 
         player.sendMessage(Text.literal("§c§l[!] §fInventory cleared! Prepared for mining."), false);
 

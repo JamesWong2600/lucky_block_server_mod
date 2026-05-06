@@ -16,6 +16,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.ChunkStatus;
 
+import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 
@@ -65,13 +66,44 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
         return spawnClone(server, world, player.getName().getString(), player.getUuid(), targetPos);
     }
 
+//    public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
+//        UUID cloneUuid = UUID.nameUUIDFromBytes(("CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
+//        GameProfile profile = new GameProfile(cloneUuid, name);
+//
+//        ClonePlayerEntity clone = new ClonePlayerEntity(server, world, profile, ownerUuid);
+//        clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+//
+//        ClientConnection fakeConnection = new ClientConnection(NetworkSide.SERVERBOUND);
+//        clone.networkHandler = new ServerPlayNetworkHandler(server, fakeConnection, clone,
+//                new ConnectedClientData(profile, 0, clone.getClientOptions(), false));
+//
+//        // 保持區塊載入
+//        ChunkPos chunkPos = new ChunkPos(pos);
+//        world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
+//
+//        // --- 關鍵修正：必須加入 PlayerList 才能讓運鏡與封包正常運作 ---
+//        server.getPlayerManager().getPlayerList().add(clone);
+//        world.spawnEntity(clone);
+//
+//        return clone;
+//    }
     public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
+        // 1. 嘗試從伺服器快取獲取完整的 GameProfile (包含皮膚數據)
+        // 如果玩家在線上，這通常能直接拿到包含 Skin 屬性的 Profile
+        Optional<GameProfile> existingProfile = server.getUserCache().getByUuid(ownerUuid);
+
         UUID cloneUuid = UUID.nameUUIDFromBytes(("CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
         GameProfile profile = new GameProfile(cloneUuid, name);
+
+        // 2. 複製皮膚屬性 (Properties)
+        existingProfile.ifPresent(ownerProfile -> {
+            profile.getProperties().putAll(ownerProfile.getProperties());
+        });
 
         ClonePlayerEntity clone = new ClonePlayerEntity(server, world, profile, ownerUuid);
         clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
 
+        // --- 網路處理部分 ---
         ClientConnection fakeConnection = new ClientConnection(NetworkSide.SERVERBOUND);
         clone.networkHandler = new ServerPlayNetworkHandler(server, fakeConnection, clone,
                 new ConnectedClientData(profile, 0, clone.getClientOptions(), false));
@@ -80,7 +112,7 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
         ChunkPos chunkPos = new ChunkPos(pos);
         world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
 
-        // --- 關鍵修正：必須加入 PlayerList 才能讓運鏡與封包正常運作 ---
+        // 加入 PlayerList 並生成
         server.getPlayerManager().getPlayerList().add(clone);
         world.spawnEntity(clone);
 

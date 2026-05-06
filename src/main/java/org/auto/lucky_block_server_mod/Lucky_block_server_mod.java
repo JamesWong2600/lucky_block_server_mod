@@ -20,6 +20,7 @@ import static org.auto.lucky_block_server_mod.command.startcommand.command_regis
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
 import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getCurrentMspt;
+import static org.auto.lucky_block_server_mod.plyerdeadevent.playerdeadevent.death_to_specttor;
 import static org.auto.lucky_block_server_mod.scoreboard.tick_scoreboard_handler.timer_register;
 import static org.auto.lucky_block_server_mod.server_init.server_initer;
 
@@ -45,6 +46,7 @@ public class Lucky_block_server_mod implements ModInitializer {
         lobby_teleport_register();
         command_register();
         server_initer();
+        death_to_specttor();
 //        ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
 //            if (!world.isClient()) {
 //                hideNonExposedOres(world, chunk);
@@ -60,7 +62,7 @@ public class Lucky_block_server_mod implements ModInitializer {
 
                 // 3. 進行設置
                 border.setCenter(0, 0);
-                border.setMaxRadius(800);
+                border.setMaxRadius(1600);
 
                 System.out.println("SUCESS BOARDER");
             }

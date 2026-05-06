@@ -50,7 +50,7 @@ public class EventScoreboard {
         if (group != null) lines.add("§f當前分組: §a" + group);
         if (GlobalPlayerAmount != null) lines.add("§f全域人數: §a" + GlobalPlayerAmount);
         if (GroupPlayerAmount != null) lines.add("§f分組人數: §a" + GroupPlayerAmount);
-        if (currentMspt != -1) lines.add("§fMSPT: §a" + currentMspt);
+        if (currentMspt != -1) lines.add("§fMSPT: §a" + (int) currentMspt);
         lines.add("§f網路延遲: §a" + getPlayerPing(player) + "ms");
         lines.add("§8 ");
 
