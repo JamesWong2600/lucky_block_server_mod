@@ -20,6 +20,8 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.auto.lucky_block_server_mod.anti_xray.anti_xray.hideNonExposedOres;
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
+import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
+import static org.auto.lucky_block_server_mod.cache.DataMap.statsMap;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
@@ -50,7 +52,7 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     public void onInitialize() {
         DATA_MANAGER.initMongo("mongodb://admin:19431231BBwongwaihung@192.168.1.102:27017", "playerdataset", "playerdataset");
-
+        loadAllDataFromMongo();
         // 2. 等待 MongoDB 連接建立（可選，確保連接成功）
 //        try {
 //            //Thread.sleep(100);
@@ -78,6 +80,8 @@ public class Lucky_block_server_mod implements ModInitializer {
 
             // 你原本的每 5 秒數據 Flush
             if (server.getTicks() % 100 == 0) {
+                System.out.println(statsMap);
+                System.out.println(GetGameFlow());
                 CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);
             }
         });

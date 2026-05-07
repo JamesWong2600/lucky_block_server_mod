@@ -1,12 +1,10 @@
 package org.auto.lucky_block_server_mod.cache;
 
-import com.mongodb.client.MongoClient;
-import com.mongodb.client.MongoClients;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.*;
 import com.mongodb.client.model.ReplaceOptions;
 import org.bson.Document;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -14,14 +12,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 
+
 public class DataMap {
 
     // 使用 ConcurrentHashMap 確保 Fabric 異步 Flush 時不會噴 ConcurrentModificationException
-    private final Map<UUID, PlayerData> statsMap = new ConcurrentHashMap<>();
+    public static final Map<UUID, PlayerData> statsMap = new ConcurrentHashMap<>();
 
     private MongoClient mongoClient;
     // 必須加上 volatile，確保非同步執行緒能看到初始化後的結果
-    private volatile MongoCollection<Document> collection;
+    private static volatile MongoCollection<Document> collection;
     private volatile MongoCollection<Document> cooldownCollection;
 
     public void saveInitialData(UUID uuid) {
@@ -117,6 +116,72 @@ public class DataMap {
             e.printStackTrace();
         }
     }
+
+    /**
+     * 【全量數據載入】從 MongoDB 的 Collection 中遍歷所有記錄，將所有玩家數據強制覆寫到快取 (statsMap) 中。
+     *
+     * @warning 注意：此操作會讀取整個資料庫集合 (Collection)。如果玩家數量極多（數十萬以上），
+     *       請務必考慮系統負載、記憶體佔用和執行時間，可能需要優化成分批次(Batch)處理。
+     */
+    public static void loadAllDataFromMongo() {
+        if (collection == null) {
+            System.err.println("!!! CRITICAL ERROR: 數據源初始化失敗，無法載入所有資料。");
+            return;
+        }
+
+        long startTime = System.currentTimeMillis();
+        int count = 0;
+
+        // ******** 關鍵修正點：在 collection.find() 後面加上 .iterator() ********
+        try (MongoCursor<Document> cursor = collection.find().iterator()) {
+            while (cursor.hasNext()) {
+                Document doc = cursor.next();
+                String idStr = doc.getString("_id");
+
+                if (idStr == null) {
+                    System.err.println("警告: 找到一個沒有 _id 欄位的文件，跳過處理。");
+                    continue;
+                }
+
+                UUID uuid;
+                try {
+                    uuid = UUID.fromString(idStr);
+                } catch (IllegalArgumentException e) {
+                    System.err.printf("警告: ID '%s' 不是有效的 UUID 格式，已跳過載入。\n", idStr);
+                    continue;
+                }
+
+                // PlayerData 創建和數據映射邏輯不變
+                PlayerData data = new PlayerData(uuid);
+                data.eliminated = doc.getBoolean("eliminated", false);
+                data.blockBreak = doc.getInteger("block_break", 0);
+                data.killCount = doc.getInteger("kill_count", 0);
+                data.group = doc.getInteger("group", 0);
+
+                // 時間戳處理：使用 long 的預設值檢查來確保型別一致性。
+                Long firstJoinTimeL = doc.getLong("first_join");
+                data.firstJoinTime = (firstJoinTimeL > 0) ? firstJoinTimeL : System.currentTimeMillis();
+
+                Long lastUpdatedL = doc.getLong("last_updated");
+                data.lastUpdated = (lastUpdatedL > 0) ? lastUpdatedL : System.currentTimeMillis();
+
+
+                // 覆寫快取中的數據
+                statsMap.put(uuid, data);
+                count++;
+            }
+        } catch (Exception e) {
+            System.err.println("🚨 致命錯誤：執行全量資料庫讀取時發生未預期的例外！");
+            e.printStackTrace();
+        }
+
+        long endTime = System.currentTimeMillis();
+        System.out.printf("\n✅ [LOAD COMPLETE] 成功將 %d 個玩家資料載入到快取。\n", count);
+        System.out.printf("✅ [PERFORMANCE] 總共載入時間：%.2f 秒。\n", (endTime - startTime) / 1000.0);
+    }
+
+
+
     /**
      * 取得玩家資料，如果不存在則建立新的 (自動初始化)
      */
@@ -160,6 +225,8 @@ public class DataMap {
         if (collection == null || statsMap.isEmpty()) {
             return;
         }
+
+        System.out.println("flusher");
 
         CompletableFuture.runAsync(() -> {
             try {

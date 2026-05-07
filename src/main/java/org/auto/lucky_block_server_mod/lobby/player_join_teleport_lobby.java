@@ -44,12 +44,15 @@ public class player_join_teleport_lobby {
                     // --- 判斷是否為新玩家 (以資料庫為準) ---
                     boolean isNewPlayer = !DATA_MANAGER.existsInMongo(uuid);
 
+                    System.out.println("notexist");
+
                     if (!isNewPlayer) {
                         // 情況：老玩家，從資料庫同步最新數據到記憶體
                         DATA_MANAGER.loadFromMongo(uuid);
                     } else {
                         // 情況：真正的新玩家，立即在資料庫建立初始存檔
                         // 避免這 5 秒內伺服器崩潰導致名單遺失
+                        System.out.println("save");
                         DATA_MANAGER.saveInitialData(uuid);
                     }
 
@@ -65,7 +68,7 @@ public class player_join_teleport_lobby {
 
                             server.execute(() -> {
                                 // OP 豁免
-                                if (player.hasPermissionLevel(2)) return;
+                                if (player.hasPermissionLevel(4)) return;
 
                                 player.teleportTo(target);
                                 player.changeGameMode(GameMode.ADVENTURE);

@@ -44,34 +44,56 @@ public abstract class break_luck_block_mixins {
             cancellable = true
     )
     private void onLuckyBlockBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
-        if (world.isClient) return;
+        BlockState state = this.world.getBlockState(pos);
 
-        // 1. 如果是 OP，直接跳過幸運方塊邏輯（不計數、不給效果）
         if (this.player.hasPermissionLevel(4)) {
             return;
         }
 
-        BlockState state = this.world.getBlockState(pos);
-
-        // 2. 只有在 Flow = 2 (比賽中) 且挖掘的是綠寶石礦時才觸發
-        // 這裡假設 GetGameFlow() 是全域可存取的
         if (GetGameFlow() == 2 && state.isOf(Blocks.EMERALD_ORE)) {
 
-            // 重要：直接調用你主類別中的 DATA_MANAGER
-            // 這樣數據才會進到你那個 ConcurrentHashMap，進而 Flush 到 MongoDB
             Lucky_block_server_mod.DATA_MANAGER.addBlockBreak(player.getUuid());
-
-            // 執行特效
+            // 執行你的幸運方塊邏輯
+            // YourMod.triggerLuckyEffect(this.player, pos);
             applyRandomEffect(player);
+            // 移除方塊並取消原版掉落
+            this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 
-            // 周圍方塊更新 (處理反透視假礦)
             updateClientBlocksAroundPlayer(player, pos);
 
-            // 移除方塊並取消原始邏輯
-            this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+            // 讓方法回傳 true 並終止後續邏輯
             cir.setReturnValue(true);
         }
     }
+//    private void onLuckyBlockBreak(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+//        if (world.isClient) return;
+//
+//        // 1. 如果是 OP，直接跳過幸運方塊邏輯（不計數、不給效果）
+//        if (this.player.hasPermissionLevel(4)) {
+//            return;
+//        }
+//
+//        BlockState state = this.world.getBlockState(pos);
+//
+//        // 2. 只有在 Flow = 2 (比賽中) 且挖掘的是綠寶石礦時才觸發
+//        // 這裡假設 GetGameFlow() 是全域可存取的
+//        if (GetGameFlow() == 2 && state.isOf(Blocks.EMERALD_ORE)) {
+//
+//            // 重要：直接調用你主類別中的 DATA_MANAGER
+//            // 這樣數據才會進到你那個 ConcurrentHashMap，進而 Flush 到 MongoDB
+//            Lucky_block_server_mod.DATA_MANAGER.addBlockBreak(player.getUuid());
+//
+//            // 執行特效
+//            applyRandomEffect(player);
+//
+//            // 周圍方塊更新 (處理反透視假礦)
+//            updateClientBlocksAroundPlayer(player, pos);
+//
+//            // 移除方塊並取消原始邏輯
+//            this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+//            cir.setReturnValue(false);
+//        }
+
 }
 //        updateClientBlocksAroundPlayer(player, pos);
 //        if (state.isOf(Blocks.EMERALD_ORE)) {
