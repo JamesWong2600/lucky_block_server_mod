@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
+import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.serverManager;
 import static org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity.spawnClone;
 import static org.auto.lucky_block_server_mod.command.cinematic_manager.startCinematicSequence;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.StartGameFlow;
@@ -42,17 +43,25 @@ public class startcommand {
         });
     }
     public static int startEvent(ServerCommandSource source, int seconds) {
+
         MinecraftServer server = source.getServer();
         ServerWorld world = server.getOverworld();
 
+
+
         try {
+            serverManager.setSession(2);
 
             server.getPlayerManager().broadcast(Text.literal("§6§l[EVENT] §aMatch Started!"), false);
 
             List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
 
             for (ServerPlayerEntity player : participants) {
+
+                System.out.println("head on");
                 if(player.hasPermissionLevel(4)) return 0;
+
+                System.out.println("head off");
                 if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
 
                 // 搜尋現有的克隆體

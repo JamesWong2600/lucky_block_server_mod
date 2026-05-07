@@ -3,6 +3,8 @@ package org.auto.lucky_block_server_mod.scoreboard;
 import net.minecraft.scoreboard.*;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -38,13 +40,13 @@ public class EventScoreboard {
             // 使用 entry.holder() 獲取 ScoreHolder
             scoreboard.removeScore(ScoreHolder.fromName(entry.owner()), finalObjective);
         });
-
+        PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
         // 構建新內容
         List<String> lines = new ArrayList<>();
         lines.add("§f ");
         lines.add("§f現階段: §a" + stage);
         if (time != null) lines.add("§f遊戲時間: §a" + time + "s");
-        if (brokenCount != null) lines.add("§f破壞數量: §a" + brokenCount + "個");
+        if (brokenCount != null) lines.add("§f破壞數量: §a" + playerData.getBlockBreak() + "個");
         if (brokenCount != null) lines.add("§f殺敵數量: §a" + brokenCount + "個");
         if (borderSize != null) lines.add("§f邊界大小: §a" + borderSize + "x" + borderSize);
         if (group != null) lines.add("§f當前分組: §a" + group);

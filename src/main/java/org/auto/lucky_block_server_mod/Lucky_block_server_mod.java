@@ -12,13 +12,13 @@ import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
 import org.auto.lucky_block_server_mod.cache.DataMap;
+import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
 
 import java.util.concurrent.CompletableFuture;
 
-import static org.auto.lucky_block_server_mod.anti_xray.anti_xray.hideNonExposedOres;
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
 import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
 import static org.auto.lucky_block_server_mod.cache.DataMap.statsMap;
@@ -48,11 +48,18 @@ public class Lucky_block_server_mod implements ModInitializer {
     public static double currentMspt = -1;
 
     public static final DataMap DATA_MANAGER = new DataMap();
+    public static ServerInfo serverManager = new ServerInfo();
+
     @Override
 
     public void onInitialize() {
-        DATA_MANAGER.initMongo("mongodb://admin:19431231BBwongwaihung@192.168.1.102:27017", "playerdataset", "playerdataset");
+        DATA_MANAGER.initMongo("mongodb://admin:19431231BBwongwaihung@192.168.1.102:27017", "playerdataset", "playerdataset", "serverdata");
         loadAllDataFromMongo();
+
+        serverManager.setGroup(4); // 例如，設定起始分組數為 4
+
+        // 🌟 新增：將初始化時的伺服器狀態立即寫入到 MongoDB
+        DATA_MANAGER.flushServerInfoToMongo(serverManager);
         // 2. 等待 MongoDB 連接建立（可選，確保連接成功）
 //        try {
 //            //Thread.sleep(100);
@@ -70,9 +77,12 @@ public class Lucky_block_server_mod implements ModInitializer {
 
         // 2. 註冊定期 Flush (例如每 5 分鐘)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+
+            ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
             // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
             if (server.getTicks() % 20 == 0) {
-                if (GetGameFlow() == 2) {
+                System.out.println(currentServerInfo.getSession());
+                if (currentServerInfo.getSession() == 2) {
                     // 檢查 CooldownManager 內的超時邏輯
                     checkTimeouts();
                 }
@@ -80,6 +90,17 @@ public class Lucky_block_server_mod implements ModInitializer {
 
             // 你原本的每 5 秒數據 Flush
             if (server.getTicks() % 100 == 0) {
+                System.out.println("\n[TASK] Running Maintenance Task...");
+
+                // A. 更新全局狀態，例如遊戲運行時間增加 5 秒
+                long currentTime = System.currentTimeMillis();
+                long newTimeRunned = serverManager.getTimeRunned() + 5000;
+                serverManager.setTimeRunned(newTimeRunned);
+
+                // B. **【核心整合】** 將 ServerInfo 的最新狀態寫入到 'serverdata' collection
+                DATA_MANAGER.flushServerInfoToMongo(serverManager);
+                System.out.println("[TASK] Global server state saved.");
+
                 System.out.println(statsMap);
                 System.out.println(GetGameFlow());
                 CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);

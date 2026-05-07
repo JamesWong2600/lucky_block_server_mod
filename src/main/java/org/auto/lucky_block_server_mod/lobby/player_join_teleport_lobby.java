@@ -68,7 +68,11 @@ public class player_join_teleport_lobby {
 
                             server.execute(() -> {
                                 // OP 豁免
-                                if (player.hasPermissionLevel(4)) return;
+                                if (player.hasPermissionLevel(4)){
+                                    player.teleportTo(target);
+                                    player.changeGameMode(GameMode.SPECTATOR);
+                                    return;
+                                }
 
                                 player.teleportTo(target);
                                 player.changeGameMode(GameMode.ADVENTURE);

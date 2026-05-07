@@ -22,6 +22,7 @@ public class DataMap {
     // 必須加上 volatile，確保非同步執行緒能看到初始化後的結果
     private static volatile MongoCollection<Document> collection;
     private volatile MongoCollection<Document> cooldownCollection;
+    private volatile MongoCollection<Document> serverDataCollection;
 
     public void saveInitialData(UUID uuid) {
         PlayerData p = getPlayerData(uuid);
@@ -52,18 +53,24 @@ public class DataMap {
     /**
      * 初始化 MongoDB 連線
      */
-    public void initMongo(String uri, String dbName, String collName) {
+    public void initMongo(String uri, String dbName, String playerCollName, String serverCollName) {
         try {
             this.mongoClient = MongoClients.create(uri);
             MongoDatabase db = this.mongoClient.getDatabase(dbName);
 
-            this.collection = db.getCollection(collName);
+            // 玩家集合
+            this.collection = db.getCollection(playerCollName);
             this.cooldownCollection = db.getCollection("player_cooldowns");
 
+            // 🌟 新增：伺服器數據集合初始化
+            this.serverDataCollection = db.getCollection(serverCollName);
+
             if (this.collection == null) {
-                System.err.println("!!! CRITICAL ERROR: collection initialization failed!");
+                System.err.println("!!! CRITICAL ERROR: Player collection initialization failed!");
+            } else if (this.serverDataCollection == null) {
+                System.err.println("!!! CRITICAL ERROR: Server data collection initialization failed!");
             } else {
-                System.out.println("Collection initialized: " + this.collection.getNamespace());
+                System.out.println("Collection initialized successfully.");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -278,6 +285,27 @@ public class DataMap {
         });
     }
 
+    public void flushServerInfoToMongo(ServerInfo info) {
+        if (serverDataCollection == null || info == null) return;
+
+        // 由於伺服器狀態通常只有一個，我們使用固定 ID 來 Upsert
+        final String SERVER_ID = "SERVER_STATE";
+        long currentTime = System.currentTimeMillis();
+
+        Document doc = new Document()
+                .append("session", info.getSession())
+                .append("group", info.getGroup())
+                .append("timeRunned", info.getTimeRunned()) // 寫入全局運行時間
+                .append("last_updated", currentTime); // 增加一個更新時間戳
+
+        // 使用固定 ID 和 Upsert 確保只有一份伺服器狀態記錄
+        serverDataCollection.replaceOne(
+                new Document("_id", SERVER_ID),
+                doc,
+                new ReplaceOptions().upsert(true)
+        );
+    }
+
     public Map<UUID, PlayerData> getAllData() {
         return statsMap;
     }
@@ -285,4 +313,5 @@ public class DataMap {
     public void close() {
         if (mongoClient != null) mongoClient.close();
     }
+
 }

@@ -9,6 +9,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
+import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.ServerInfo;
 
 import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.LOBBY_WORLD_KEY;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
@@ -21,8 +23,10 @@ public class playerdeadevent {
     public static void death_to_specttor(){
     ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
         // 判斷死亡的是不是玩家
+        ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
+
         if (entity instanceof ServerPlayerEntity player) {
-            if(GetGameFlow() == 1 || GetGameFlow() == 5){
+            if(currentServerInfo.getSession() == 1 || currentServerInfo.getSession() == 5){
                 ServerWorld world = (ServerWorld) entity.getWorld();
                 if (world != null) {
                     TeleportTarget target = new TeleportTarget(

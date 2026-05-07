@@ -14,8 +14,7 @@
     ]
   },
   "mixins": [
-    "break_lucky_block_mixins.mixins.json",
-    "AntiXrayMixin.mixins.json"
+    "break_lucky_block_mixins.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

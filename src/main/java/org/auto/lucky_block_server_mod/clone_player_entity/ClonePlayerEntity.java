@@ -25,6 +25,7 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
 
     // 儲存對應玩家的 UUID
     private final UUID ownerUuid;
+    private static final int MAX_DISPLAY_LENGTH = 16;
 
     public ClonePlayerEntity(MinecraftServer server, ServerWorld world, GameProfile profile, UUID ownerUuid) {
         super(server, world, profile, SyncedClientOptions.createDefault());
@@ -40,6 +41,8 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
      */
     public static ClonePlayerEntity spawnAtRandomTopPos(ServerPlayerEntity player, int radius) {
         MinecraftServer server = player.getServer();
+
+        System.out.println("server: "+server);
         // 建議使用 player 所在的維度，而非鎖死 Overworld
         ServerWorld world = player.getServer().getOverworld();
         BlockPos center = player.getBlockPos();
@@ -63,9 +66,22 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
 
         BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
 
-        return spawnClone(server, world, player.getName().getString(), player.getUuid(), targetPos);
+        return spawnClone(server, world, safeTruncate("bot_"+player.getName().getString()), player.getUuid(), targetPos);
     }
 
+
+    public static String safeTruncate(String originalString) {
+        if (originalString == null || originalString.isEmpty()) {
+            return ""; // 增加空字串檢查，更穩健
+        }
+
+        // 如果字串長度超過限制，就只取出前 MAX_DISPLAY_LENGTH 個字符；否則返回原字串。
+        if (originalString.length() > MAX_DISPLAY_LENGTH) {
+            return originalString.substring(0, MAX_DISPLAY_LENGTH);
+        } else {
+            return originalString;
+        }
+    }
 //    public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
 //        UUID cloneUuid = UUID.nameUUIDFromBytes(("CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
 //        GameProfile profile = new GameProfile(cloneUuid, name);
