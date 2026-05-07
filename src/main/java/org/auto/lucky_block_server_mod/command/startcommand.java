@@ -75,7 +75,7 @@ public class startcommand {
                     spawnAtRandomTopPosAsync(player, 800).thenAccept(newClone -> {
                         if (newClone != null) {
                             // 這裡已經回到伺服器主線程，可以安全操作
-                            startCinematicSequence(player, newClone,120);
+                            startCinematicSequence(player, (ClonePlayerEntity) newClone,120);
                         }
                     }).exceptionally(ex -> {
                         ex.printStackTrace();
@@ -103,7 +103,7 @@ public class startcommand {
         }
         return null;
     }
-    public static CompletableFuture<ClonePlayerEntity> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
+    public static CompletableFuture<Object> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
         MinecraftServer server = player.getServer();
         ServerWorld world = player.getServerWorld();
         BlockPos center = player.getBlockPos();
@@ -124,7 +124,7 @@ public class startcommand {
                     BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
 
                     // 3. 呼叫原本的生成方法
-                    return spawnClone(server, world, player.getName().getString(), player.getUuid(), targetPos);
+                    return spawnClone(server, world, "bot_"+player.getName().getString(), player.getUuid(), targetPos);
                 }, server); // 確保在伺服器主線程回調
     }
 

@@ -2,6 +2,9 @@ package org.auto.lucky_block_server_mod.scoreboard;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
+import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
+import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.data.player_amount;
 
 import static org.auto.lucky_block_server_mod.data.player_amount.*;
@@ -28,14 +31,16 @@ public class tick_scoreboard_handler {
                 int local = getLocalPlayerAmount(server);
                 int global = getGlobalPlayerAmount();
 
+                ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
                 // 3. 更新所有玩家的計分板
-                if(GetGameFlow()==1){
+                if(currentServerInfo.getSession() ==1){
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                    PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
                     EventScoreboard.updateScoreboard(
                             player,
                             "集合階段",
                             null,
-                            null, // 假設不顯示破壞數
+                            playerData.getBlockBreak(), // 假設不顯示破壞數
                             (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                              getGlobalPlayerAmount(),
                             getLocalPlayerAmount(server),
@@ -43,13 +48,14 @@ public class tick_scoreboard_handler {
                     );
                  }
                 }
-                if(GetGameFlow()==2){
+                if(currentServerInfo.getSession() ==2){
                     for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                        PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
                         EventScoreboard.updateScoreboard(
                                 player,
                                 "和平時期",
                                 getTotalSeconds(),
-                                getBrokenCount(player.getUuid()), // 假設不顯示破壞數
+                                playerData.getBlockBreak(), // 假設不顯示破壞數
                                 (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),

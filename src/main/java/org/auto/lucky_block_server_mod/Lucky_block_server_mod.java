@@ -7,17 +7,23 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
 import org.auto.lucky_block_server_mod.cache.DataMap;
+import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
+import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
 
+import java.util.Queue;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
 import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
@@ -49,6 +55,7 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     public static final DataMap DATA_MANAGER = new DataMap();
     public static ServerInfo serverManager = new ServerInfo();
+    public static final Queue<PlayerSpawnTask> spawnQueue = new ConcurrentLinkedQueue<>();
 
     @Override
 
@@ -77,7 +84,24 @@ public class Lucky_block_server_mod implements ModInitializer {
 
         // 2. 註冊定期 Flush (例如每 5 分鐘)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            while (!spawnQueue.isEmpty()) {
+                PlayerSpawnTask task = spawnQueue.poll(); // 從隊列取出第一個任務
 
+                if (task != null) {
+
+                    UUID uuid = task.getPlayerUuid();
+                    int radius = task.getRadius();
+
+                    ServerPlayerEntity playerToSpawnFor = server.getPlayerManager().getPlayer(uuid);
+
+                    if (playerToSpawnFor != null) {
+                        // 將 Getter 取得的值傳入 spawnAtRandomTopPos
+                        ClonePlayerEntity.spawnAtRandomTopPos(playerToSpawnFor, radius);
+                    } else {
+                        System.out.println("⚠️ [Spawn Task] Player " + uuid + " logged out while waiting for spawn task.");
+                    }
+                }
+            }
             ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
             // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
             if (server.getTicks() % 20 == 0) {

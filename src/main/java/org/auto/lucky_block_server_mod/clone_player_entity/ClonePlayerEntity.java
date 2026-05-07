@@ -5,6 +5,7 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.NetworkSide;
 import net.minecraft.network.packet.c2s.common.SyncedClientOptions;
+import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ConnectedClientData;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
@@ -66,6 +67,9 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
 
         BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
 
+
+        System.out.println("sucess");
+
         return spawnClone(server, world, safeTruncate("bot_"+player.getName().getString()), player.getUuid(), targetPos);
     }
 
@@ -82,56 +86,80 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
             return originalString;
         }
     }
+
 //    public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
-//        UUID cloneUuid = UUID.nameUUIDFromBytes(("CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
+//        // 1. Profile 獲取 (這個部分保持不變，因為我們需要皮膚數據)
+//        Optional<GameProfile> existingProfile = server.getUserCache().getByUuid(ownerUuid);
+//        UUID cloneUuid = UUID.nameUUIDFromBytes(("STATIC_ENTITY:" + ownerUuid.toString()).getBytes());
 //        GameProfile profile = new GameProfile(cloneUuid, name);
-//
 //        ClonePlayerEntity clone = new ClonePlayerEntity(server, world, profile, ownerUuid);
-//        clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
 //
-//        ClientConnection fakeConnection = new ClientConnection(NetworkSide.SERVERBOUND);
-//        clone.networkHandler = new ServerPlayNetworkHandler(server, fakeConnection, clone,
-//                new ConnectedClientData(profile, 0, clone.getClientOptions(), false));
 //
-//        // 保持區塊載入
-//        ChunkPos chunkPos = new ChunkPos(pos);
-//        world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
+//        if (clone != null && profile != null) { // 最基礎的安全檢查
+//            existingProfile.ifPresent(ownerProfile -> {
+//                profile.getProperties().putAll(ownerProfile.getProperties());
+//            });
 //
-//        // --- 關鍵修正：必須加入 PlayerList 才能讓運鏡與封包正常運作 ---
-//        server.getPlayerManager().getPlayerList().add(clone);
-//        world.spawnEntity(clone);
+//            clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+//            // --- 【關鍵移除】所有網路相關的程式碼都被刪除 ---
+//            // 不再需要 ClientConnection 或 ServerPlayNetworkHandler
 //
-//        return clone;
+//            // 保持區塊載入 (這部分仍然需要，以確保實體不會被伺服器清理)
+//            ChunkPos chunkPos = new ChunkPos(pos);
+//            world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
+//
+//            world.spawnEntity(clone); // ✅ 只使用 world.spawnEntity()，讓它作為一個普通世界實體存在。
+//
+//            System.out.println("Static model spawned successfully.");
+//
+//            return clone;
+//        } else {
+//            System.err.println("🚨 CRITICAL ERROR: Clone Entity setup failed due to missing profile or clone object.");
+//            return clone; // 安全退出，防止 NPE
+//        }
+//
 //    }
-    public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
-        // 1. 嘗試從伺服器快取獲取完整的 GameProfile (包含皮膚數據)
-        // 如果玩家在線上，這通常能直接拿到包含 Skin 屬性的 Profile
-        Optional<GameProfile> existingProfile = server.getUserCache().getByUuid(ownerUuid);
+        public static ClonePlayerEntity spawnClone(MinecraftServer server, ServerWorld world, String name, UUID ownerUuid, BlockPos pos) {
+            // 1. 嘗試從伺服器快取獲取完整的 GameProfile (包含皮膚數據)
+            // 如果玩家在線上，這通常能直接拿到包含 Skin 屬性的 Profile
+            Optional<GameProfile> existingProfile = server.getUserCache().getByUuid(ownerUuid);
 
-        UUID cloneUuid = UUID.nameUUIDFromBytes(("CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
-        GameProfile profile = new GameProfile(cloneUuid, name);
+            UUID cloneUuid = UUID.nameUUIDFromBytes(("Z_CLONE_ENTITY:" + ownerUuid.toString()).getBytes());
 
-        // 2. 複製皮膚屬性 (Properties)
-        existingProfile.ifPresent(ownerProfile -> {
-            profile.getProperties().putAll(ownerProfile.getProperties());
-        });
+            GameProfile profile = new GameProfile(cloneUuid, name);
 
-        ClonePlayerEntity clone = new ClonePlayerEntity(server, world, profile, ownerUuid);
-        clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+            // 2. 複製皮膚屬性 (Properties)
+            existingProfile.ifPresent(ownerProfile -> {
+                profile.getProperties().putAll(ownerProfile.getProperties());
+            });
 
-        // --- 網路處理部分 ---
-        ClientConnection fakeConnection = new ClientConnection(NetworkSide.SERVERBOUND);
-        clone.networkHandler = new ServerPlayNetworkHandler(server, fakeConnection, clone,
-                new ConnectedClientData(profile, 0, clone.getClientOptions(), false));
+            ClonePlayerEntity clone = new ClonePlayerEntity(server, world, profile, ownerUuid);
+            clone.refreshPositionAndAngles(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
 
-        // 保持區塊載入
-        ChunkPos chunkPos = new ChunkPos(pos);
-        world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
+            // --- 網路處理部分 ---
+            ClientConnection fakeConnection = new ClientConnection(NetworkSide.SERVERBOUND);
+            clone.networkHandler = new ServerPlayNetworkHandler(server, fakeConnection, clone,
+                    new ConnectedClientData(profile, 0, clone.getClientOptions(), false));
 
-        // 加入 PlayerList 並生成
-        server.getPlayerManager().getPlayerList().add(clone);
-        world.spawnEntity(clone);
+            // 保持區塊載入
+            ChunkPos chunkPos = new ChunkPos(pos);
+            world.getChunkManager().addTicket(ChunkTicketType.FORCED, chunkPos, 2, chunkPos);
 
-        return clone;
+            // 加入 PlayerList 並生成
+            server.getPlayerManager().getPlayerList().add(clone);
+
+            PlayerListS2CPacket addPlayerPacket = new PlayerListS2CPacket(PlayerListS2CPacket.Action.ADD_PLAYER, clone);
+            server.getPlayerManager().sendToAll(addPlayerPacket);
+
+            world.spawnEntity(clone);
+
+            System.out.println("spawnned");
+
+
+
+            return clone;
+
     }
+
+
 }
