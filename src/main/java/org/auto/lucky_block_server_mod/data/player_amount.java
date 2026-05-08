@@ -48,12 +48,17 @@ public class player_amount {
             // 3. 初始化 Redis 連接池
             JedisPoolConfig poolConfig = new JedisPoolConfig();
             poolConfig.setMaxTotal(8);
+// --- 新增以下設定 ---
+            poolConfig.setTestOnBorrow(true);       // 每次拿連線時都先 Ping 一下 (確保沒斷)
+            poolConfig.setTestWhileIdle(true);      // 閒置時也進行檢測
+            poolConfig.setMinEvictableIdleTimeMillis(60000); // 連線至少閒置多久會被清除 (1分鐘)
+            poolConfig.setTimeBetweenEvictionRunsMillis(30000); // 檢測執行頻率
 
             pool = new JedisPool(
                     poolConfig,
                     config.redis.host,
                     config.redis.port,
-                    2000, // Timeout
+                    2000, // Connection Timeout
                     (config.redis.password == null || config.redis.password.isEmpty()) ? null : config.redis.password
             );
             System.out.println("Redis initialized for server: " + config.server.id);

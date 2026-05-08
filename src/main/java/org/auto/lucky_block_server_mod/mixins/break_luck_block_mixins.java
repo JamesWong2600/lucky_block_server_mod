@@ -12,6 +12,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.lucky_block_data.LuckBlockData;
 import org.spongepowered.asm.mixin.Final;
@@ -55,7 +56,9 @@ public abstract class break_luck_block_mixins {
 
         if (currentServerInfo.getSession() == 2 && state.isOf(Blocks.EMERALD_ORE)) {
 
-            Lucky_block_server_mod.DATA_MANAGER.addBlockBreak(player.getUuid());
+            PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
+
+            playerData.incrementBlockBreak();
             // 執行你的幸運方塊邏輯
             // YourMod.triggerLuckyEffect(this.player, pos);
             applyRandomEffect(player);

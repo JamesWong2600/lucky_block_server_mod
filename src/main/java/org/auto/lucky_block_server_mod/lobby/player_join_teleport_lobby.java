@@ -1,6 +1,7 @@
 package org.auto.lucky_block_server_mod.lobby;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.entity.Entity;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -8,7 +9,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
+import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
 import org.auto.lucky_block_server_mod.cache.DataMap;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
@@ -33,66 +36,77 @@ public class player_join_teleport_lobby {
 
         public static final DataMap DATA_MANAGER = new DataMap();
 
+    private static boolean clone_entity(ServerWorld world, ServerPlayerEntity player) {
+        // 遍歷世界中的實體，檢查是否為 ClonePlayerEntity 類型
+        for (var entity : world.iterateEntities()) {
+            if (entity instanceof ClonePlayerEntity) {
+                // 如果當前觸發 Join 事件的實體本身就是 ClonePlayerEntity
+                    System.out.println("偵測到 NPC 加入，跳過所有邏輯");
+                    return true;
+            }
+        }
+        return false;
+    }
 
-        public static void lobby_teleport_register() {
-            ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-                UUID uuid = handler.player.getUuid();
-                ServerPlayerEntity player = handler.player;
+    public static void lobby_teleport_register() {
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            ServerPlayerEntity player = handler.player;
+            UUID uuid = player.getUuid();
 
-                // 1. 在主線程先確保記憶體對象存在
-                final boolean isNpc = player.getName().getString().startsWith("§z_");
-                final boolean[] isNewPlayerWrapper = {false}; // 使用陣列或原子類以便在 Lambda 中存取
+            // 1. 攔截 NPC：如果是 NPC 觸發 Join，直接 return，不執行任何後續動作
+            // 這裡檢查主世界是否有該 NPC 實體
+            if (clone_entity(server.getOverworld(), player)) {
+                return;
+            }
 
-                if (isNpc) {
-                    DATA_MANAGER.getPlayerData(uuid);
-                    System.out.println("Detected NPC: Memory-only data created, skipping DB.");
-                } else {
-                    isNewPlayerWrapper[0] = !DATA_MANAGER.existsInMongo(uuid);
-                    if (!isNewPlayerWrapper[0]) {
-                        DATA_MANAGER.loadFromMongo(uuid);
+            // --- 以下邏輯僅會針對「真實玩家」執行 ---
+
+            final boolean[] isNewPlayerWrapper = {false};
+
+            // 真實玩家資料庫處理
+            isNewPlayerWrapper[0] = !DATA_MANAGER.existsInMongo(uuid);
+            if (!isNewPlayerWrapper[0]) {
+                DATA_MANAGER.loadFromMongo(uuid);
+            } else {
+                System.out.println("新玩家存檔: " + uuid);
+                DATA_MANAGER.saveInitialData(uuid);
+            }
+
+            final boolean isNewPlayer = isNewPlayerWrapper[0];
+
+            // 2. 傳送與大廳邏輯
+            ServerWorld lobbyWorld = server.getWorld(LOBBY_WORLD_KEY);
+
+            if (lobbyWorld != null) {
+                TeleportTarget target = new TeleportTarget(
+                        lobbyWorld,
+                        new Vec3d(LOBBY_X, LOBBY_Y, LOBBY_Z),
+                        Vec3d.ZERO, 0.0f, 90.0f, TeleportTarget.NO_OP
+                );
+
+                server.execute(() -> {
+                    // 將真實玩家傳送到大廳
+                    player.teleportTo(target);
+
+                    // --- 權限與遊戲模式處理 ---
+                    if (player.hasPermissionLevel(4)) {
+                        player.changeGameMode(GameMode.SPECTATOR);
                     } else {
-                        System.out.println("save");
-                        DATA_MANAGER.saveInitialData(uuid);
-                    }
-                }
+                        player.changeGameMode(GameMode.ADVENTURE);
 
-                final boolean isNewPlayer = isNewPlayerWrapper[0]; // 轉為 final 變數供 Lambda 使用
+                        // 為真實玩家生成 Clone NPC 任務
+                        spawnQueue.add(new PlayerSpawnTask(uuid, 800));
 
-                // 2. 傳送與大廳邏輯
-                ServerWorld world = server.getWorld(LOBBY_WORLD_KEY);
-
-                if (world != null) {
-                    TeleportTarget target = new TeleportTarget(
-                            world,
-                            new Vec3d(LOBBY_X, LOBBY_Y, LOBBY_Z),
-                            Vec3d.ZERO, 0.0f, 90.0f, TeleportTarget.NO_OP
-                    );
-
-                    server.execute(() -> {
-                        // 所有「實體」都先傳送到大廳
-                        player.teleportTo(target);
-
-                        // 如果是 NPC，到此為止（不執行下面的模式切換與訊息發送）
-                        if (isNpc) return;
-
-                        // --- 真實玩家邏輯 ---
-                        if (player.hasPermissionLevel(4)) {
-                            player.changeGameMode(GameMode.SPECTATOR);
+                        if (isNewPlayer) {
+                            player.sendMessage(Text.literal("§e偵測到新檔案，已將你傳送至活動大廳。"), false);
                         } else {
-                            player.changeGameMode(GameMode.ADVENTURE);
-
-                            // 生成 Clone 任務 (只針對真實玩家)
-                            spawnQueue.add(new PlayerSpawnTask(uuid, 800));
-
-                            if (isNewPlayer) {
-                                player.sendMessage(Text.literal("§e偵測到新檔案，已將你傳送至活動大廳。"), false);
-                            } else {
-                                player.sendMessage(Text.literal("§a歡迎回來，已恢復您的比賽數據。"), false);
-                            }
+                            player.sendMessage(Text.literal("§a歡迎回來，已恢復您的比賽數據。"), false);
                         }
-                    });
-                }
-            });
+                    }
+                });
+            }
+        });
+
 //            ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 //                UUID uuid = handler.player.getUuid();
 //                ServerPlayerEntity player = handler.player;

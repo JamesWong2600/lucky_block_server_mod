@@ -76,7 +76,7 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
 
         System.out.println("sucess");
 
-        return spawnClone(server, world, safeTruncate("bot_"+player.getName().getString()), player.getUuid(), targetPos);
+        return spawnClone(server, world, safeTruncate(player.getName().getString()), player.getUuid(), targetPos);
     }
 
 
