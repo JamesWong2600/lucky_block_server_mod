@@ -44,7 +44,7 @@ public class tick_scoreboard_handler {
                             (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                              getGlobalPlayerAmount(),
                             getLocalPlayerAmount(server),
-                            SERVER_ID
+                            getConfig().server.id
                     );
                  }
                 }
@@ -59,7 +59,7 @@ public class tick_scoreboard_handler {
                                 (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),
-                                SERVER_ID
+                                getConfig().server.id
                         );
                     }
                 }

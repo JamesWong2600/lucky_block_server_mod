@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -17,9 +18,11 @@ import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
+import org.auto.lucky_block_server_mod.data.player_amount;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
 
+import java.nio.file.Path;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,7 +63,10 @@ public class Lucky_block_server_mod implements ModInitializer {
     @Override
 
     public void onInitialize() {
-        DATA_MANAGER.initMongo("mongodb://admin:19431231BBwongwaihung@192.168.1.102:27017", "playerdataset", "playerdataset", "serverdata");
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+
+        // 初始化 (傳入路徑與你的 DataMap 實例)
+        player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER);
         loadAllDataFromMongo();
 
         serverManager.setGroup(4); // 例如，設定起始分組數為 4
@@ -108,6 +114,7 @@ public class Lucky_block_server_mod implements ModInitializer {
                 System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
                     // 檢查 CooldownManager 內的超時邏輯
+                    player_amount.updateRedisCount(server);
                     checkTimeouts();
                 }
             }
