@@ -12,6 +12,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.ChunkStatus;
+import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 
 import java.util.ArrayList;
@@ -98,11 +100,17 @@ public class startcommand {
     private static ClonePlayerEntity findExistingClone(ServerWorld world, ServerPlayerEntity player) {
         for (var entity : world.iterateEntities()) {
             if (entity instanceof ClonePlayerEntity c) {
-                if (player.getUuid().equals(c.getOwnerUuid())) return c;
+                PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
+                if (c.getUuid().equals(playerData.getClone_uuid())) {
+                    System.out.println("找到了");
+                    return c; // 找到就立即返回
+                }
             }
         }
         return null;
     }
+
+
     public static CompletableFuture<Object> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
         MinecraftServer server = player.getServer();
         ServerWorld world = player.getServerWorld();

@@ -40,22 +40,25 @@ public class player_join_teleport_lobby {
                 ServerPlayerEntity player = handler.player;
 
                 // 1. 在主線程先確保記憶體對象存在
-                DATA_MANAGER.getPlayerData(uuid);
+                final boolean isNpc = player.getName().getString().startsWith("§z_");
+                final boolean[] isNewPlayerWrapper = {false}; // 使用陣列或原子類以便在 Lambda 中存取
 
-                boolean isNewPlayer = !DATA_MANAGER.existsInMongo(uuid);
-
-                if (!isNewPlayer) {
-                    // 情況：老玩家，從資料庫同步最新數據到記憶體
-                    DATA_MANAGER.loadFromMongo(uuid);
+                if (isNpc) {
+                    DATA_MANAGER.getPlayerData(uuid);
+                    System.out.println("Detected NPC: Memory-only data created, skipping DB.");
                 } else {
-                    // 情況：真正的新玩家，立即在資料庫建立初始存檔
-                    System.out.println("save");
-                    DATA_MANAGER.saveInitialData(uuid);
+                    isNewPlayerWrapper[0] = !DATA_MANAGER.existsInMongo(uuid);
+                    if (!isNewPlayerWrapper[0]) {
+                        DATA_MANAGER.loadFromMongo(uuid);
+                    } else {
+                        System.out.println("save");
+                        DATA_MANAGER.saveInitialData(uuid);
+                    }
                 }
 
-                // ========================================================
-                // 【🌟 核心修正點】將所有進入大廳的邏輯統一在此處執行！
-                // ========================================================
+                final boolean isNewPlayer = isNewPlayerWrapper[0]; // 轉為 final 變數供 Lambda 使用
+
+                // 2. 傳送與大廳邏輯
                 ServerWorld world = server.getWorld(LOBBY_WORLD_KEY);
 
                 if (world != null) {
@@ -66,16 +69,19 @@ public class player_join_teleport_lobby {
                     );
 
                     server.execute(() -> {
-                        // 1. 所有玩家都先被傳送到大廳 (這是共同步驟)
+                        // 所有「實體」都先傳送到大廳
                         player.teleportTo(target);
 
-                        // 2. OP 特殊邏輯
-                        if (player.hasPermissionLevel(4)){
+                        // 如果是 NPC，到此為止（不執行下面的模式切換與訊息發送）
+                        if (isNpc) return;
+
+                        // --- 真實玩家邏輯 ---
+                        if (player.hasPermissionLevel(4)) {
                             player.changeGameMode(GameMode.SPECTATOR);
                         } else {
                             player.changeGameMode(GameMode.ADVENTURE);
 
-                            // ✅ 🌟 無論是新老玩家，都確保 ClonePlayerEntity 在大廳生成！
+                            // 生成 Clone 任務 (只針對真實玩家)
                             spawnQueue.add(new PlayerSpawnTask(uuid, 800));
 
                             if (isNewPlayer) {

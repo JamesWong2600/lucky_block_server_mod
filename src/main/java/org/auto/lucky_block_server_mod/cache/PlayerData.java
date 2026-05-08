@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public class PlayerData {
     public final UUID uuid;
+    public UUID clone_uuid;
     public boolean eliminated = false;
     public int blockBreak = 0;
     public int killCount = 0;
@@ -38,4 +39,7 @@ public class PlayerData {
     public long getFirstJoinTime() { return firstJoinTime; }
     public long getLastUpdated() { return lastUpdated; }
     public void updateLastUpdated() { this.lastUpdated = System.currentTimeMillis(); }
+
+    public UUID getClone_uuid() { return clone_uuid; }
+    public void setClone_uuid(UUID Clone_uuid) { this.clone_uuid = Clone_uuid; }
 }

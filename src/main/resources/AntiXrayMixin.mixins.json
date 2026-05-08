@@ -4,7 +4,7 @@
   "package": "org.auto.lucky_block_server_mod.mixins",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "AntiChunkXrayMixin"
+    "AntiXrayMixin"
   ],
   "injectors": {
     "defaultRequire": 1
