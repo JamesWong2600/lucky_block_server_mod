@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "org.auto.lucky_block_server_mod.mixins",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "Death"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

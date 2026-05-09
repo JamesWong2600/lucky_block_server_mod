@@ -11,6 +11,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import net.minecraft.world.dimension.DimensionOptions;
 import org.auto.lucky_block_server_mod.cache.DataMap;
@@ -85,11 +86,13 @@ public class Lucky_block_server_mod implements ModInitializer {
         lobby_teleport_register();
         command_register();
         server_initer();
-        death_to_specttor();
+        //death_to_specttor();
         //DATA_MANAGER.initMongo("mongodb://192.168.1.102:27017", "playerdataset", "playerdataset");
 
         // 2. 註冊定期 Flush (例如每 5 分鐘)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
+            server.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(true, server);
+
             while (!spawnQueue.isEmpty()) {
                 PlayerSpawnTask task = spawnQueue.poll(); // 從隊列取出第一個任務
 

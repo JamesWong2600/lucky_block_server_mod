@@ -15,7 +15,8 @@
   },
   "mixins": [
     "break_lucky_block_mixins.mixins.json",
-    "AntiXrayMixin.mixins.json"
+    "AntiXrayMixin.mixins.json",
+    "Death.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",

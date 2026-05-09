@@ -36,16 +36,9 @@ public class player_join_teleport_lobby {
 
         public static final DataMap DATA_MANAGER = new DataMap();
 
-    private static boolean clone_entity(ServerWorld world, ServerPlayerEntity player) {
-        // 遍歷世界中的實體，檢查是否為 ClonePlayerEntity 類型
-        for (var entity : world.iterateEntities()) {
-            if (entity instanceof ClonePlayerEntity) {
-                // 如果當前觸發 Join 事件的實體本身就是 ClonePlayerEntity
-                    System.out.println("偵測到 NPC 加入，跳過所有邏輯");
-                    return true;
-            }
-        }
-        return false;
+    private static boolean isClonePlayer(ServerPlayerEntity player) {
+        // 直接檢查加入的玩家是否是 ClonePlayerEntity 類型
+        return player instanceof ClonePlayerEntity;
     }
 
     public static void lobby_teleport_register() {
@@ -55,7 +48,7 @@ public class player_join_teleport_lobby {
 
             // 1. 攔截 NPC：如果是 NPC 觸發 Join，直接 return，不執行任何後續動作
             // 這裡檢查主世界是否有該 NPC 實體
-            if (clone_entity(server.getOverworld(), player)) {
+            if (isClonePlayer(player)) {
                 return;
             }
 

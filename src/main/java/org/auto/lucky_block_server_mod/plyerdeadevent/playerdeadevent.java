@@ -14,6 +14,7 @@ import org.auto.lucky_block_server_mod.cache.ServerInfo;
 
 import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.LOBBY_WORLD_KEY;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
+import static org.auto.lucky_block_server_mod.server_init.currentServer;
 
 public class playerdeadevent {
     private static final double LOBBY_X = 0.5;
@@ -27,7 +28,9 @@ public class playerdeadevent {
 
         if (entity instanceof ServerPlayerEntity player) {
             if(currentServerInfo.getSession() == 1 || currentServerInfo.getSession() == 5){
-                ServerWorld world = (ServerWorld) entity.getWorld();
+                ServerWorld world = currentServer.getWorld(LOBBY_WORLD_KEY);
+
+                System.out.println("world: "+world);
                 if (world != null) {
                     TeleportTarget target = new TeleportTarget(
                             world,
