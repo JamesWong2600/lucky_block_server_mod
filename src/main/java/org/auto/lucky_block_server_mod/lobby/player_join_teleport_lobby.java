@@ -42,6 +42,20 @@ public class player_join_teleport_lobby {
     }
 
     public static void lobby_teleport_register() {
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            // 獲取斷開連線玩家的 UUID
+            java.util.UUID playerUuid = handler.getPlayer().getUuid();
+
+            // 1. 調用你 EventScoreboard 裡的重置方法
+            EventScoreboard.resetPlayer(playerUuid);
+
+            // 或是直接在事件中清理（如果你把變數設為 public）
+            // EventScoreboard.initializedPlayers.remove(playerUuid);
+            // EventScoreboard.playerLastLines.remove(playerUuid);
+
+            System.out.println("[Debug] 玩家 " + handler.getPlayer().getDisplayName() + " 已離開，清理計分板緩存。");
+        });
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.player;
             UUID uuid = player.getUuid();

@@ -9,11 +9,14 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
+import net.minecraft.world.border.WorldBorder;
 import net.minecraft.world.dimension.DimensionOptions;
 import org.auto.lucky_block_server_mod.cache.DataMap;
 import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
@@ -99,7 +102,7 @@ public class Lucky_block_server_mod implements ModInitializer {
         // 2. 註冊定期 Flush (例如每 5 分鐘)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             server.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(true, server);
-
+            server.getGameRules().get(GameRules.KEEP_INVENTORY).set(true, server);
             while (!spawnQueue.isEmpty()) {
                 PlayerSpawnTask task = spawnQueue.poll(); // 從隊列取出第一個任務
 
@@ -125,18 +128,7 @@ public class Lucky_block_server_mod implements ModInitializer {
                     currentServerInfo.setSession(3);
                 }
                 if (currentServerInfo.getSession() == 3) {
-                    ServerWorld overworld = server.getWorld(World.OVERWORLD);
-
-                    if (overworld != null) {
-                        // 2. 獲取該世界的邊界
-                        var border = overworld.getWorldBorder();
-
-                        // 3. 進行設置
-                        border.setCenter(0, 0);
-                        border.interpolateSize(1600L, 10L, 1200);
-
-                        System.out.println("開始縮圈");
-                    }
+                    shrinkBorder(server);
                 }
                 System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
@@ -212,7 +204,49 @@ public class Lucky_block_server_mod implements ModInitializer {
 //            }
 //        });
     }
+    private void shrinkBorder(MinecraftServer server) {
+        WorldBorder worldBorder = server.getOverworld().getWorldBorder();
+        int totalSeconds = getTotalSeconds();
 
+        // 總時間 300 秒（5分鐘）
+        int totalTime = 300;
+        int remainingTime = totalTime - totalSeconds;
+
+        double currentSize; // 單位：方塊（總寬度）
+
+        // 最小邊界大小（可調整，越小越刺激）
+        double minSize = 10.0;  // 改成 50，縮到 -25 到 25
+        double maxSize = 1600.0;
+
+        if (remainingTime <= 0) {
+            currentSize = minSize; // 時間到，縮到最小
+        } else {
+            // 公式：從 maxSize 開始，線性縮小到 minSize
+            double progress = (double) totalSeconds / totalTime;
+            currentSize = maxSize - (progress * (maxSize - minSize));
+            // 限制範圍
+            currentSize = Math.max(minSize, Math.min(maxSize, currentSize));
+        }
+
+        // 執行縮小
+        if (currentSize < worldBorder.getSize()) {
+            worldBorder.setMaxRadius((int) currentSize);
+            worldBorder.setCenter(0, 0);
+
+            // 發送警告（每 10 秒一次）
+            if (server.getTicks() % 200 == 0) {
+                int halfSize = (int)(currentSize / 2);
+                String message = String.format("§c⚠️ 邊界縮小到 §e%d x %d §c方塊 (§e-%d 到 %d§c) | 剩餘時間: §e%d §c秒",
+                        (int)currentSize, (int)currentSize, halfSize, halfSize, Math.max(0, remainingTime));
+                for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                    player.sendMessage(Text.literal(message), false);
+                }
+            }
+
+            System.out.printf("🌍 邊界縮小: %.1f 方塊 (±%.1f) | 剩餘時間: %d秒%n",
+                    currentSize, currentSize / 2, remainingTime);
+        }
+    }
 //    private void onServerTick(MinecraftServer server) {
 //        tickCounter++;
 //
