@@ -22,6 +22,7 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
 import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.serverManager;
+import static org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity.safeTruncate;
 import static org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity.spawnClone;
 import static org.auto.lucky_block_server_mod.command.cinematic_manager.startCinematicSequence;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.StartGameFlow;
@@ -132,7 +133,7 @@ public class startcommand {
                     BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
 
                     // 3. 呼叫原本的生成方法
-                    return spawnClone(server, world, "bot_"+player.getName().getString(), player.getUuid(), targetPos);
+                    return spawnClone(server, world, safeTruncate(player.getName().getString()), player.getUuid(), targetPos);
                 }, server); // 確保在伺服器主線程回調
     }
 

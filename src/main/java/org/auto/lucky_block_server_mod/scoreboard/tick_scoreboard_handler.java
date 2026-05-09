@@ -63,6 +63,21 @@ public class tick_scoreboard_handler {
                         );
                     }
                 }
+                if(currentServerInfo.getSession() ==3){
+                    for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                        PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
+                        EventScoreboard.updateScoreboard(
+                                player,
+                                "戰鬥時期",
+                                getTotalSeconds(),
+                                playerData.getBlockBreak(), // 假設不顯示破壞數
+                                (int) server.getOverworld().getWorldBorder().getMaxRadius(),
+                                getGlobalPlayerAmount(),
+                                getLocalPlayerAmount(server),
+                                getConfig().server.id
+                        );
+                    }
+                }
             }
         });
     }

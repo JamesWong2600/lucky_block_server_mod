@@ -13,7 +13,7 @@ import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.currentMspt
 import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getPlayerPing;
 
 public class EventScoreboard {
-    private static final String OBJECTIVE_NAME = "lucky_event";
+    private static final String OBJECTIVE_NAME = "lucky_block_objective";
 
     private static final Map<UUID, List<String>> playerLines = new HashMap<>();
 

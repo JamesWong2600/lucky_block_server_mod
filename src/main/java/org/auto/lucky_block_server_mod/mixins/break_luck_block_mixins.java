@@ -65,7 +65,7 @@ public abstract class break_luck_block_mixins {
             // 移除方塊並取消原版掉落
             this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 
-            updateClientBlocksAroundPlayer(player, pos);
+            //updateClientBlocksAroundPlayer(player, pos);
 
             // 讓方法回傳 true 並終止後續邏輯
             cir.setReturnValue(true);

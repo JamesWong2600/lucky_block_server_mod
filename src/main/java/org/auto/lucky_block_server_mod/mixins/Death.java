@@ -1,9 +1,13 @@
 package org.auto.lucky_block_server_mod.mixins;
 
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
 import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
@@ -25,7 +29,7 @@ public abstract class Death {
 
     @Inject(
             method = "onDeath",
-            at = @At("HEAD"),
+            at = @At("TAIL"),
             cancellable = true
     )
     private void cancelDeathAndTeleport(DamageSource damageSource, CallbackInfo ci) {
@@ -50,12 +54,27 @@ public abstract class Death {
 
                 // 恢復生命值
                 player.setHealth(player.getMaxHealth());
-
                 // 清除狀態效果
                 player.clearStatusEffects();
 
                 ;
             }
+        }else{
+            player.sendMessage(Text.literal("你已死亡，進入旁觀模式"), false);
+
+            // 執行切換模式
+            // 注意：在死亡瞬間直接切換可能會被重生邏輯覆蓋，
+            // 但在 1.21.4 中，對 ServerPlayerEntity 設置遊戲模式通常是穩定的。
+            //player.changeGameMode(GameMode.SPECTATOR);
+
+            // 如果你想順便給他夜視（回應你之前的需求），可以加在這裡
+            player.addStatusEffect(new StatusEffectInstance(
+                    StatusEffects.NIGHT_VISION,
+                    StatusEffectInstance.INFINITE, // 1.21.4 推薦使用常量
+                    0,
+                    false,
+                    false
+            ));
         }
     }
 }

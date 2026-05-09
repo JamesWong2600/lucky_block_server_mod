@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
@@ -29,15 +30,16 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import static org.auto.lucky_block_server_mod.anti_xray.anti_xray_air_wall.updateClientBlocksAroundPlayer;
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
 import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
 import static org.auto.lucky_block_server_mod.cache.DataMap.statsMap;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
+import static org.auto.lucky_block_server_mod.flow.game_timer.getTotalSeconds;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
 import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getCurrentMspt;
-import static org.auto.lucky_block_server_mod.plyerdeadevent.playerdeadevent.death_to_specttor;
 import static org.auto.lucky_block_server_mod.scoreboard.tick_scoreboard_handler.timer_register;
 import static org.auto.lucky_block_server_mod.server_init.server_initer;
 
@@ -65,7 +67,12 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     public void onInitialize() {
         Path configDir = FabricLoader.getInstance().getConfigDir();
-
+        PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
+            if (!world.isClient()) {
+                updateClientBlocksAroundPlayer(player, pos);
+            }
+            return true;
+        });
         // 初始化 (傳入路徑與你的 DataMap 實例)
         player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER);
         loadAllDataFromMongo();
@@ -114,6 +121,23 @@ public class Lucky_block_server_mod implements ModInitializer {
             ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
             // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
             if (server.getTicks() % 20 == 0) {
+                if(getTotalSeconds() > 100){
+                    currentServerInfo.setSession(3);
+                }
+                if (currentServerInfo.getSession() == 3) {
+                    ServerWorld overworld = server.getWorld(World.OVERWORLD);
+
+                    if (overworld != null) {
+                        // 2. 獲取該世界的邊界
+                        var border = overworld.getWorldBorder();
+
+                        // 3. 進行設置
+                        border.setCenter(0, 0);
+                        border.interpolateSize(1600L, 10L, 1200);
+
+                        System.out.println("開始縮圈");
+                    }
+                }
                 System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
                     // 檢查 CooldownManager 內的超時邏輯
