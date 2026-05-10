@@ -19,6 +19,7 @@ import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.ChunkStatus;
 import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
@@ -183,6 +184,7 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
                     playerData.setClone_uuid(cloneUuid);
 
                     world.spawnEntity(clone[0]);
+                    clone[0].interactionManager.changeGameMode(GameMode.CREATIVE);
 
                     // 移除 Tab 列表
                     //PlayerRemoveS2CPacket removePacket = new PlayerRemoveS2CPacket(List.of(clone[0].getUuid()));

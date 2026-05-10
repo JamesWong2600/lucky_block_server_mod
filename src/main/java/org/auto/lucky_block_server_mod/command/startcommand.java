@@ -62,7 +62,11 @@ public class startcommand {
             for (ServerPlayerEntity player : participants) {
 
                 System.out.println("head on");
-                if(player.hasPermissionLevel(4)) return 0;
+
+                if(player.hasPermissionLevel(4)) {
+                    System.out.println("Skipping player with permission level 4: " + player.getName().getString());
+                    continue;  // 只跳過這個玩家，不中斷整個方法
+                }
 
                 System.out.println("head off");
                 if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
