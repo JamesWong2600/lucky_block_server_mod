@@ -41,7 +41,7 @@ public class cross_server_msg {
     /**
      * 異步訂閱 Redis 頻道，收到訊息後顯示在伺服器上
      */
-    private static void startListening(MinecraftServer server) {
+    public static void startListening(MinecraftServer server) {
         if (pool == null) return;
 
         subscribeThread = new Thread(() -> {

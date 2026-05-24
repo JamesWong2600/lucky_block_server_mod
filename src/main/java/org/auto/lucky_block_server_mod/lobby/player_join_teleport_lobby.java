@@ -50,10 +50,6 @@ public class player_join_teleport_lobby {
             // 1. 調用你 EventScoreboard 裡的重置方法
             EventScoreboard.resetPlayer(playerUuid);
 
-            // 或是直接在事件中清理（如果你把變數設為 public）
-            // EventScoreboard.initializedPlayers.remove(playerUuid);
-            // EventScoreboard.playerLastLines.remove(playerUuid);
-
             System.out.println("[Debug] 玩家 " + handler.getPlayer().getDisplayName() + " 已離開，清理計分板緩存。");
         });
 
@@ -62,65 +58,79 @@ public class player_join_teleport_lobby {
             UUID uuid = player.getUuid();
 
             // 1. 攔截 NPC：如果是 NPC 觸發 Join，直接 return，不執行任何後續動作
-            // 這裡檢查主世界是否有該 NPC 實體
             if (isClonePlayer(player)) {
                 return;
             }
 
             // --- 以下邏輯僅會針對「真實玩家」執行 ---
 
-            final boolean[] isNewPlayerWrapper = {false};
+            // 💡 核心優化：異步載入普通玩家存檔，同時也去驗證是否在 admindata 表中
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                // A. 處理普通玩家存檔
+                boolean isNewPlayer = !DATA_MANAGER.existsInMongo(uuid);
+                if (!isNewPlayer) {
+                    DATA_MANAGER.loadFromMongo(uuid);
+                } else {
+                    System.out.println("新玩家存檔: " + uuid);
+                    DATA_MANAGER.saveInitialData(uuid);
+                }
 
-            // 真實玩家資料庫處理
-            isNewPlayerWrapper[0] = !DATA_MANAGER.existsInMongo(uuid);
-            if (!isNewPlayerWrapper[0]) {
-                DATA_MANAGER.loadFromMongo(uuid);
-            } else {
-                System.out.println("新玩家存檔: " + uuid);
-                DATA_MANAGER.saveInitialData(uuid);
-            }
+                // B. 🌟 處理 Admin 資料庫同步：從 MongoDB 的 admindata 載入該玩家的最新狀態
+                // 這裡直接查詢 _id 是否存在於 admindata 且 group=99，如果是就將記憶體的 group 改為 99
+                try {
+                    // 假設你的 DataMap 裡有我們前面寫的驗證邏輯，或是直接拿 adminCollection 來做快取同步：
+                    // 如果你想簡化，也可以在 DataMap 裡加上一個讀取管理員的方法，這裡我們直接查記憶體是否要更新
+                    // 為了確保萬無一失，我們可以呼叫一個獨立的非同步載入（下方補充方法），或在此處直接比對快取
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 
-            final boolean isNewPlayer = isNewPlayerWrapper[0];
-
-            // 2. 傳送與大廳邏輯
-            ServerWorld lobbyWorld = server.getWorld(LOBBY_WORLD_KEY);
-
-            if (lobbyWorld != null) {
-                TeleportTarget target = new TeleportTarget(
-                        lobbyWorld,
-                        new Vec3d(LOBBY_X, LOBBY_Y, LOBBY_Z),
-                        Vec3d.ZERO, 0.0f, 90.0f, TeleportTarget.NO_OP
-                );
-
+                // 將結果傳遞給主執行緒（Server Thread）來進行傳送與遊戲模式變更
                 server.execute(() -> {
-                    // 將真實玩家傳送到大廳
-                    player.teleportTo(target);
 
-                    // --- 權限與遊戲模式處理 ---
-                    if (player.hasPermissionLevel(4)) {
-                        player.changeGameMode(GameMode.SPECTATOR);
-                    } else {
-                        player.changeGameMode(GameMode.ADVENTURE);
+                    // 2. 傳送與大廳邏輯
+                    ServerWorld lobbyWorld = server.getWorld(LOBBY_WORLD_KEY);
 
-                        // 為真實玩家生成 Clone NPC 任務
-                        spawnQueue.add(new PlayerSpawnTask(uuid, 800));
+                    if (lobbyWorld != null) {
 
-                        if (isNewPlayer) {
-                            player.sendMessage(Text.literal("§e偵測到新檔案，已將你傳送至活動大廳。"), false);
+
+                        // --- 🌟 權限與遊戲模式處理（徹底取代原本的 OP 等級 4 判斷） ---
+                        if (DATA_MANAGER.isAdminInCache(uuid)) {
+                            // 1. 如果在快取中抓到他是 Admin (group == 99)，直接切換旁觀者，並且「不生成 NPC 克隆體」
+                            player.changeGameMode(GameMode.SPECTATOR);
+                            player.sendMessage(Text.literal("§a[管理員認證] 歡迎回來，已為您自動切換至管理員旁觀模式。"), false);
                         } else {
-                            player.sendMessage(Text.literal("§a歡迎回來，已恢復您的比賽數據。"), false);
-                            PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
-                            ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
-                            if(playerData.isEliminated() && (currentServerInfo.getSession() == 2 ||
-                                    currentServerInfo.getSession() == 3 ||
-                                    currentServerInfo.getSession() == 4)){
-                                   player.changeGameMode(GameMode.SPECTATOR);
-                            }
+                            // 2. 不是 Admin，走一般玩家流程（冒險模式 + 生成 NPC 任務）
+                            player.changeGameMode(GameMode.ADVENTURE);
 
+                            // 為真實玩家生成 Clone NPC 任務
+                            spawnQueue.add(new PlayerSpawnTask(uuid, 800));
+
+                            if (isNewPlayer) {
+                                TeleportTarget target = new TeleportTarget(
+                                        lobbyWorld,
+                                        new Vec3d(LOBBY_X, LOBBY_Y, LOBBY_Z),
+                                        Vec3d.ZERO, 0.0f, 90.0f, TeleportTarget.NO_OP
+                                );
+
+                                // 將真實玩家傳送到大廳
+                                player.teleportTo(target);
+                                player.sendMessage(Text.literal("§e偵測到新檔案，已將你傳送至活動大廳。"), false);
+                            } else {
+                                player.sendMessage(Text.literal("§a歡迎回來，已恢復您的比賽數據。"), false);
+                                PlayerData playerData = DATA_MANAGER.getPlayerData(uuid);
+                                ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
+
+                                if (playerData.isEliminated() && (currentServerInfo.getSession() == 2 ||
+                                        currentServerInfo.getSession() == 3 ||
+                                        currentServerInfo.getSession() == 4)) {
+                                    player.changeGameMode(GameMode.SPECTATOR);
+                                }
+                            }
                         }
                     }
                 });
-            }
+            });
         });
 
 //            ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

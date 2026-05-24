@@ -323,7 +323,7 @@ public class DataMap {
     private static volatile MongoCollection<Document> collection;
     private volatile MongoCollection<Document> cooldownCollection;
     private volatile MongoCollection<Document> serverDataCollection;
-
+    private static volatile MongoCollection<Document> adminCollection;
     public void initMongo(String uri, String dbName, String playerCollName, String serverCollName) {
         try {
             this.mongoClient = MongoClients.create(uri);
@@ -331,6 +331,8 @@ public class DataMap {
             collection = db.getCollection(playerCollName);
             this.cooldownCollection = db.getCollection("player_cooldowns");
             this.serverDataCollection = db.getCollection(serverCollName);
+
+            adminCollection = db.getCollection("admindata");
             System.out.println("✅ MongoDB Collections initialized.");
         } catch (Exception e) {
             e.printStackTrace();
@@ -457,6 +459,79 @@ public class DataMap {
                 .append("last_updated", System.currentTimeMillis());
         serverDataCollection.replaceOne(new Document("_id", "SERVER_STATE"), doc, new ReplaceOptions().upsert(true));
     }
+
+    // === 請將此方法新增至你的 DataMap 類別中 ===
+    /**
+     * 立刻將單一玩家的最新記憶體資料（statsMap）非同步刷入 MongoDB
+     */
+    public void flushAdminDataToMongo(UUID uuid, int group, String password) {
+        if (adminCollection == null || uuid == null || password == null) return;
+
+        // 丟進非同步執行緒，確保遊戲絕對不卡頓
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 以 UUID 做為該 document 的唯一 _id
+                Document adminDoc = new Document("_id", uuid.toString())
+                        .append("group", group)
+                        .append("password", password)
+                        .append("last_updated", System.currentTimeMillis());
+
+                // 如果該 UUID 存在就替換，不存在就新增 (Upsert)
+                adminCollection.replaceOne(
+                        new Document("_id", uuid.toString()),
+                        adminDoc,
+                        new ReplaceOptions().upsert(true)
+                );
+                System.out.println("💾 [MongoDB] Admin 憑證已成功保存至 admindata: " + uuid);
+            } catch (Exception e) {
+                System.err.println("❌ [MongoDB] 保存 admindata 時發生錯誤：");
+                e.printStackTrace();
+            }
+        });
+    }
+
+
+    public boolean isAdminInCache(UUID uuid) {
+        if (uuid == null) return false;
+        // 取得資料，若記憶體沒有則會觸發 computeIfAbsent 建立初始物件
+        PlayerData p = getPlayerData(uuid);
+        return p != null && p.group == 99; // 99 是我們前面設定的 Admin 代碼
+    }
+
+    /**
+     * 從 MongoDB 的 "admindata" 集合非同步驗證 Admin 身分與密碼
+     * @param uuid 玩家的 UUID
+     * @param inputPassword 玩家輸入的 32 位密碼
+     * @return 包含驗證結果的 CompletableFuture<Boolean>
+     */
+    public CompletableFuture<Boolean> verifyAdminPassword(UUID uuid, String inputPassword) {
+        if (adminCollection == null || uuid == null || inputPassword == null) {
+            return CompletableFuture.completedFuture(false);
+        }
+
+        // 將資料庫查詢丟進背景執行緒
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                // 尋找 _id 等於玩家 UUID 的文件
+                Document doc = adminCollection.find(new Document("_id", uuid.toString())).first();
+
+                if (doc != null) {
+                    int group = doc.getInteger("group", 0);
+                    String savedPassword = doc.getString("password");
+
+                    // 檢查權限組是否為 99 且密碼完全相符（區分大小寫）
+                    if (group == 99 && inputPassword.equals(savedPassword)) {
+                        return true;
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("❌ [MongoDB] 驗證 Admin 密碼時發生錯誤：");
+                e.printStackTrace();
+            }
+            return false; // 沒查到或密碼錯誤一律回傳 false
+        });
+    }
+
 
     public void close() {
         if (mongoClient != null) mongoClient.close();

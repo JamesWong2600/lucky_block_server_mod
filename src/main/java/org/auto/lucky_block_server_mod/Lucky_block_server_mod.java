@@ -37,6 +37,8 @@ import static org.auto.lucky_block_server_mod.anti_xray.anti_xray_air_wall.updat
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
 import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
 import static org.auto.lucky_block_server_mod.cache.DataMap.statsMap;
+import static org.auto.lucky_block_server_mod.cache.RandomEffectConfigManager.loadConfig;
+import static org.auto.lucky_block_server_mod.command.addadmin.addadmin_command_register;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
 import static org.auto.lucky_block_server_mod.flow.game_timer.getTotalSeconds;
@@ -79,8 +81,9 @@ public class Lucky_block_server_mod implements ModInitializer {
         // 初始化 (傳入路徑與你的 DataMap 實例)
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
+            loadConfig(server);
         });
-
+        addadmin_command_register();
         loadAllDataFromMongo();
 
         serverManager.setGroup(4); // 例如，設定起始分組數為 4
@@ -102,55 +105,63 @@ public class Lucky_block_server_mod implements ModInitializer {
         //death_to_specttor();
         //DATA_MANAGER.initMongo("mongodb://192.168.1.102:27017", "playerdataset", "playerdataset");
 
-        // 2. 註冊定期 Flush (例如每 5 分鐘)
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             server.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(true, server);
             server.getGameRules().get(GameRules.KEEP_INVENTORY).set(true, server);
+
             while (!spawnQueue.isEmpty()) {
-                PlayerSpawnTask task = spawnQueue.poll(); // 從隊列取出第一個任務
-
+                PlayerSpawnTask task = spawnQueue.poll();
                 if (task != null) {
-
                     UUID uuid = task.getPlayerUuid();
                     int radius = task.getRadius();
-
                     ServerPlayerEntity playerToSpawnFor = server.getPlayerManager().getPlayer(uuid);
-
                     if (playerToSpawnFor != null) {
-                        // 將 Getter 取得的值傳入 spawnAtRandomTopPos
                         ClonePlayerEntity.spawnAtRandomTopPos(playerToSpawnFor, radius);
                     } else {
                         System.out.println("⚠️ [Spawn Task] Player " + uuid + " logged out while waiting for spawn task.");
                     }
                 }
             }
+
             ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
-            // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
+
+            // 每 20 tick (1秒) 檢查一次
             if (server.getTicks() % 20 == 0) {
-                if(getTotalSeconds() > 100){
+                if (getTotalSeconds() > 100) {
                     currentServerInfo.setSession(3);
                 }
+
                 if (currentServerInfo.getSession() == 3) {
-                    shrinkBorder(server);
+                    // 💡 這裡改為直接派發原生世界邊界指令
+                    // 假設你想縮到「半徑 50 格」（直徑 100），耗時 30 秒，可以這樣寫：
+                    int targetRadius = 300;
+                    int shrinkTimeSeconds = 500;
+
+                    // ⚠️ 注意：Minecraft 原生 /worldborder set 接受的是「直徑」，所以半徑要乘以 2
+                    int diameter = targetRadius * 2;
+
+                    String command = String.format("worldborder set %d %d", diameter, shrinkTimeSeconds);
+
+                    // 執行指令（使用伺服器最高權限後台執行）
+                    server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
+
+                    // 避免每秒都重複執行指令，通常執行完後會把 session 推進或標記
+                    currentServerInfo.setSession(4);
                 }
+
                 System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
-                    // 檢查 CooldownManager 內的超時邏輯
                     player_amount.updateRedisCount(server);
                     checkTimeouts();
                 }
             }
 
-            // 你原本的每 5 秒數據 Flush
+            // 每 5 秒數據 Flush
             if (server.getTicks() % 100 == 0) {
                 System.out.println("\n[TASK] Running Maintenance Task...");
-
-                // A. 更新全局狀態，例如遊戲運行時間增加 5 秒
-                long currentTime = System.currentTimeMillis();
                 long newTimeRunned = serverManager.getTimeRunned() + 5000;
                 serverManager.setTimeRunned(newTimeRunned);
 
-                // B. **【核心整合】** 將 ServerInfo 的最新狀態寫入到 'serverdata' collection
                 DATA_MANAGER.flushServerInfoToMongo(serverManager);
                 System.out.println("[TASK] Global server state saved.");
 
@@ -159,6 +170,63 @@ public class Lucky_block_server_mod implements ModInitializer {
                 CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);
             }
         });
+        // 2. 註冊定期 Flush (例如每 5 分鐘)
+//        ServerTickEvents.END_SERVER_TICK.register(server -> {
+//            server.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(true, server);
+//            server.getGameRules().get(GameRules.KEEP_INVENTORY).set(true, server);
+//            while (!spawnQueue.isEmpty()) {
+//                PlayerSpawnTask task = spawnQueue.poll(); // 從隊列取出第一個任務
+//
+//                if (task != null) {
+//
+//                    UUID uuid = task.getPlayerUuid();
+//                    int radius = task.getRadius();
+//
+//                    ServerPlayerEntity playerToSpawnFor = server.getPlayerManager().getPlayer(uuid);
+//
+//                    if (playerToSpawnFor != null) {
+//                        // 將 Getter 取得的值傳入 spawnAtRandomTopPos
+//                        ClonePlayerEntity.spawnAtRandomTopPos(playerToSpawnFor, radius);
+//                    } else {
+//                        System.out.println("⚠️ [Spawn Task] Player " + uuid + " logged out while waiting for spawn task.");
+//                    }
+//                }
+//            }
+//            ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
+//            // 每 20 tick (1秒) 檢查一次是否有玩家超過 60 秒沒連回
+//            if (server.getTicks() % 20 == 0) {
+//                if(getTotalSeconds() > 100){
+//                    currentServerInfo.setSession(3);
+//                }
+//                if (currentServerInfo.getSession() == 3) {
+//                    shrinkBorder(server);
+//                }
+//                System.out.println(currentServerInfo.getSession());
+//                if (currentServerInfo.getSession() == 2) {
+//                    // 檢查 CooldownManager 內的超時邏輯
+//                    player_amount.updateRedisCount(server);
+//                    checkTimeouts();
+//                }
+//            }
+//
+//            // 你原本的每 5 秒數據 Flush
+//            if (server.getTicks() % 100 == 0) {
+//                System.out.println("\n[TASK] Running Maintenance Task...");
+//
+//                // A. 更新全局狀態，例如遊戲運行時間增加 5 秒
+//                long currentTime = System.currentTimeMillis();
+//                long newTimeRunned = serverManager.getTimeRunned() + 5000;
+//                serverManager.setTimeRunned(newTimeRunned);
+//
+//                // B. **【核心整合】** 將 ServerInfo 的最新狀態寫入到 'serverdata' collection
+//                DATA_MANAGER.flushServerInfoToMongo(serverManager);
+//                System.out.println("[TASK] Global server state saved.");
+//
+//                System.out.println(statsMap);
+//                System.out.println(GetGameFlow());
+//                CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);
+//            }
+//        });
 //        ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> {
 //            if (!world.isClient()) {
 //                hideNonExposedOres(world, chunk);

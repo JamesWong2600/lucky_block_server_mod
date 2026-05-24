@@ -54,7 +54,7 @@ public abstract class break_luck_block_mixins {
 
         ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
 
-        if (currentServerInfo.getSession() == 2 && state.isOf(Blocks.EMERALD_ORE)) {
+        if (currentServerInfo.getSession() == 2 || currentServerInfo.getSession() == 3 || currentServerInfo.getSession() == 4 && state.isOf(Blocks.EMERALD_ORE)) {
 
             PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
 
@@ -65,7 +65,7 @@ public abstract class break_luck_block_mixins {
             // 移除方塊並取消原版掉落
             this.world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
 
-            //updateClientBlocksAroundPlayer(player, pos);
+            updateClientBlocksAroundPlayer(player, pos);
 
             // 讓方法回傳 true 並終止後續邏輯
             cir.setReturnValue(true);
