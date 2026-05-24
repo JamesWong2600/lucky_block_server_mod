@@ -18,6 +18,7 @@ public class PlayerData {
         this.uuid = uuid;
         this.firstJoinTime = System.currentTimeMillis();
         this.lastUpdated = this.firstJoinTime;
+        //this.killCount
     }
 
     // Getter 和 Setter 方法（可選，但建議添加）

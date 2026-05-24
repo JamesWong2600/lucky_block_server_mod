@@ -37,13 +37,15 @@ public class tick_scoreboard_handler {
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                     PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
                     int block_count = playerData.getBlockBreak();
+                    int killCount = playerData.getKillCount();
 
                     if (currentServerInfo.getSession() == 1) {
                         EventScoreboard.updateScoreboard(
                                 player,
                                 "集合階段",
                                 null,
-                                block_count, // 假設不顯示破壞數
+                                null, // 假設不顯示破壞數
+                                null,
                                 (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),
@@ -56,6 +58,7 @@ public class tick_scoreboard_handler {
                                 "和平時期",
                                 getTotalSeconds(),
                                 block_count, // 假設不顯示破壞數
+                                null,
                                 (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),
@@ -68,6 +71,7 @@ public class tick_scoreboard_handler {
                                 "戰鬥時期",
                                 getTotalSeconds(),
                                 block_count, // 假設不顯示破壞數
+                                killCount,
                                 (int) server.getOverworld().getWorldBorder().getMaxRadius(),
                                 getGlobalPlayerAmount(),
                                 getLocalPlayerAmount(server),

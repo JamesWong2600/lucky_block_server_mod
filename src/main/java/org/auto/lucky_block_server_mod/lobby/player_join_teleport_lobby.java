@@ -13,6 +13,7 @@ import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
 import org.auto.lucky_block_server_mod.cache.DataMap;
 import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
+import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.scoreboard.EventScoreboard;
 
@@ -108,6 +109,14 @@ public class player_join_teleport_lobby {
                             player.sendMessage(Text.literal("§e偵測到新檔案，已將你傳送至活動大廳。"), false);
                         } else {
                             player.sendMessage(Text.literal("§a歡迎回來，已恢復您的比賽數據。"), false);
+                            PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
+                            ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
+                            if(playerData.isEliminated() && (currentServerInfo.getSession() == 2 ||
+                                    currentServerInfo.getSession() == 3 ||
+                                    currentServerInfo.getSession() == 4)){
+                                   player.changeGameMode(GameMode.SPECTATOR);
+                            }
+
                         }
                     }
                 });

@@ -77,7 +77,10 @@ public class Lucky_block_server_mod implements ModInitializer {
             return true;
         });
         // 初始化 (傳入路徑與你的 DataMap 實例)
-        player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER);
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
+        });
+
         loadAllDataFromMongo();
 
         serverManager.setGroup(4); // 例如，設定起始分組數為 4

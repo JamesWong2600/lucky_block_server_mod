@@ -16,13 +16,15 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.Set;
 
+import static org.auto.lucky_block_server_mod.message.cross_server_msg.startListening;
+
 public class player_amount {
 
-    private static JedisPool pool;
+    public static JedisPool pool;
     private static ModConfig config;
     private static final String REDIS_KEY_PREFIX = "server:players:";
 
-    public static void init(Path configPath, DataMap dataManager) {
+    public static void init(Path configPath, DataMap dataManager, MinecraftServer server) {
         File configFile = configPath.resolve("lucky_block_config.toml").toFile();
 
         try {
@@ -62,6 +64,7 @@ public class player_amount {
                     (config.redis.password == null || config.redis.password.isEmpty()) ? null : config.redis.password
             );
             System.out.println("Redis initialized for server: " + config.server.id);
+            startListening(server);
 
         } catch (Exception e) {
             System.err.println("Failed to load config or initialize databases!");

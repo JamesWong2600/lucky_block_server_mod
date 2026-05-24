@@ -32,7 +32,7 @@ public class EventScoreboard {
     }
 
     public static void updateScoreboard(ServerPlayerEntity player, String stage, Integer time,
-                                        Integer brokenCount, Integer borderSize,
+                                        Integer brokenCount, Integer killCount, Integer borderSize,
                                         Integer GlobalPlayerAmount, Integer GroupPlayerAmount,
                                         @Nullable String group) {
 
@@ -60,7 +60,7 @@ public class EventScoreboard {
         if (brokenCount != null) lines.add("§f破壞數量: §a" + brokenCount + "個");
 
         // 提醒：此處建議修正變數，不要重複使用 brokenCount
-        if (brokenCount != null) lines.add("§f殺敵數量: §a" + brokenCount + "個");
+        if (killCount != null) lines.add("§f殺敵數量: §a" + killCount + "個");
 
         if (borderSize != null) lines.add("§f邊界大小: §a" + borderSize + "x" + borderSize);
         if (GlobalPlayerAmount != null) lines.add("§f全域人數: §a" + GlobalPlayerAmount);

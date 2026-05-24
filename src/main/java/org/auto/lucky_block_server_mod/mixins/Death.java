@@ -1,5 +1,7 @@
 package org.auto.lucky_block_server_mod.mixins;
 
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -10,6 +12,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.TeleportTarget;
 import org.auto.lucky_block_server_mod.Lucky_block_server_mod;
+import org.auto.lucky_block_server_mod.cache.PlayerData;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,8 +27,25 @@ public abstract class Death {
     private static final double LOBBY_X = 0.5;
     private static final double LOBBY_Y = 10.0;
     private static final double LOBBY_Z = 0.5;
+    @Inject(method = "onDeath", at = @At("HEAD"))
+    private void onEntityDeath(DamageSource damageSource, CallbackInfo ci) {
+        // 將 this 轉型為當前的 LivingEntity 實例
+        LivingEntity killedEntity = (LivingEntity) (Object) this;
 
+        // 如果是在伺服器端運行
+        if (!killedEntity.getWorld().isClient()) {
+            // 從傷害來源中獲取攻擊者
+            Entity attacker = damageSource.getAttacker();
 
+            if (attacker != null) {
+                // 這裡拿到的 attacker 就是擊殺者
+                PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(attacker.getUuid());
+
+                playerData.incrementKillCount();
+                System.out.println(attacker.getName().getString() + " 擊殺了 " + killedEntity.getName().getString());
+            }
+        }
+    }
 
     @Inject(
             method = "onDeath",
@@ -65,8 +85,10 @@ public abstract class Death {
             // 執行切換模式
             // 注意：在死亡瞬間直接切換可能會被重生邏輯覆蓋，
             // 但在 1.21.4 中，對 ServerPlayerEntity 設置遊戲模式通常是穩定的。
-            //player.changeGameMode(GameMode.SPECTATOR);
+            player.changeGameMode(GameMode.SPECTATOR);
+            PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
 
+            playerData.setEliminated(true);
             // 如果你想順便給他夜視（回應你之前的需求），可以加在這裡
             player.addStatusEffect(new StatusEffectInstance(
                     StatusEffects.NIGHT_VISION,

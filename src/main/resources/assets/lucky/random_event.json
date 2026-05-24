@@ -1,0 +1,70 @@
+{
+  "effects": {
+    "item": {
+      "weight": 1,
+      "message": "§a✦ 你獲得了隨機物品！ ✦",
+      "categories": {
+        "normal_items": [
+          {"id": "minecraft:diamond", "count": 5},
+          {"id": "minecraft:netherite_ingot", "count": 1},
+          {"id": "minecraft:emerald", "count": 10},
+          {"id": "minecraft:gold_ingot", "count": 16},
+          {"id": "minecraft:iron_ingot", "count": 32},
+          {"id": "minecraft:totem_of_undying", "count": 1}
+        ],
+        "weapons": {
+          "pool": ["minecraft:diamond_sword", "minecraft:netherite_sword", "minecraft:diamond_axe", "minecraft:bow", "minecraft:crossbow"],
+          "enchant_chance": 0.5,
+          "enchantment": "minecraft:sharpness",
+          "min_level": 1,
+          "max_level": 3
+        },
+        "tools": {
+          "pool": ["minecraft:diamond_pickaxe", "minecraft:netherite_pickaxe", "minecraft:diamond_shovel", "minecraft:elytra"],
+          "enchant_chance": 0.5,
+          "enchantment": "minecraft:efficiency",
+          "min_level": 1,
+          "max_level": 4,
+          "exclude_enchant": ["minecraft:elytra"]
+        },
+        "armors": {
+          "pool": ["minecraft:diamond_helmet", "minecraft:diamond_chestplate", "minecraft:netherite_helmet", "minecraft:netherite_chestplate", "minecraft:leather_helmet", "minecraft:leather_chestplate"],
+          "enchant_chance": 0.5,
+          "enchantment": "minecraft:protection",
+          "min_level": 1,
+          "max_level": 3
+        }
+      }
+    },
+    "potion": {
+      "weight": 1,
+      "message": "§b✦ 你獲得了藥水效果！ ✦",
+      "good_effect_chance": 0.7,
+      "bad_effects": [
+        {"id": "minecraft:slowness", "duration_ticks": 200, "amplifier": 1},
+        {"id": "minecraft:weakness", "duration_ticks": 300, "amplifier": 0},
+        {"id": "minecraft:poison", "duration_ticks": 160, "amplifier": 1},
+        {"id": "minecraft:blindness", "duration_ticks": 100, "amplifier": 0},
+        {"id": "minecraft:hunger", "duration_ticks": 400, "amplifier": 1}
+      ],
+      "good_effects": [
+        {"id": "minecraft:speed", "duration_ticks": 1200, "amplifier": 1},
+        {"id": "minecraft:jump_boost", "duration_ticks": 900, "amplifier": 1},
+        {"id": "minecraft:strength", "duration_ticks": 600, "amplifier": 0},
+        {"id": "minecraft:regeneration", "duration_ticks": 400, "amplifier": 1},
+        {"id": "minecraft:resistance", "duration_ticks": 800, "amplifier": 0},
+        {"id": "minecraft:night_vision", "duration_ticks": 2400, "amplifier": 0},
+        {"id": "minecraft:haste", "duration_ticks": 1200, "amplifier": 1}
+      ]
+    },
+    "health": {
+      "weight": 1,
+      "message": "§d✦ 你的血量上限改變了！ ✦",
+      "min_change": 2,
+      "max_change": 11,
+      "min_health_limit": 2,
+      "increase_msg": "§a❤ 血量上限增加了 %s 顆心！",
+      "decrease_msg": "§c❤ 血量上限減少了 %s 顆心！"
+    }
+  }
+}
