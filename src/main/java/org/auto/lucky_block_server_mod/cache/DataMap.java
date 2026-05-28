@@ -2,12 +2,10 @@ package org.auto.lucky_block_server_mod.cache;
 
 import com.mongodb.client.*;
 import com.mongodb.client.model.ReplaceOptions;
+import org.auto.lucky_block_server_mod.config.ModConfig;
 import org.bson.Document;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -318,6 +316,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DataMap {
 
     public static final Map<UUID, PlayerData> statsMap = new ConcurrentHashMap<>();
+    public static final Set<UUID> adminCache = ConcurrentHashMap.newKeySet();
+    private static ModConfig config;
 
     private MongoClient mongoClient;
     private static volatile MongoCollection<Document> collection;
@@ -452,12 +452,13 @@ public class DataMap {
 
     public void flushServerInfoToMongo(ServerInfo info) {
         if (serverDataCollection == null || info == null) return;
+        config = new ModConfig();
         Document doc = new Document()
                 .append("session", info.getSession())
-                .append("group", info.getGroup())
+               // .append("group", info.getGroup())
                 .append("timeRunned", info.getTimeRunned())
                 .append("last_updated", System.currentTimeMillis());
-        serverDataCollection.replaceOne(new Document("_id", "SERVER_STATE"), doc, new ReplaceOptions().upsert(true));
+        serverDataCollection.replaceOne(new Document("_id", config.server.id), doc, new ReplaceOptions().upsert(true));
     }
 
     // === 請將此方法新增至你的 DataMap 類別中 ===
@@ -492,12 +493,22 @@ public class DataMap {
 
 
     public boolean isAdminInCache(UUID uuid) {
-        if (uuid == null) return false;
-        // 取得資料，若記憶體沒有則會觸發 computeIfAbsent 建立初始物件
-        PlayerData p = getPlayerData(uuid);
-        return p != null && p.group == 99; // 99 是我們前面設定的 Admin 代碼
+        return uuid != null && adminCache.contains(uuid);
     }
 
+    public static void loadAdminCache() {
+        if (adminCollection == null) return;
+
+        adminCache.clear();
+        adminCollection.find().forEach(doc -> {
+            try {
+                adminCache.add(UUID.fromString(doc.getString("_id")));
+            } catch (Exception e) {
+                System.err.println("⚠️ 無法解析 Admin UUID: " + doc.getString("_id"));
+            }
+        });
+        System.out.println("✅ Admin 記憶體快取已載入，共 " + adminCache.size() + " 位管理員。");
+    }
     /**
      * 從 MongoDB 的 "admindata" 集合非同步驗證 Admin 身分與密碼
      * @param uuid 玩家的 UUID

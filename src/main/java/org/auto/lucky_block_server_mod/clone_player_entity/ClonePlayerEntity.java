@@ -189,14 +189,14 @@ public class ClonePlayerEntity extends ServerPlayerEntity {
                     // 移除 Tab 列表
                     //PlayerRemoveS2CPacket removePacket = new PlayerRemoveS2CPacket(List.of(clone[0].getUuid()));
                     //server.getPlayerManager().sendToAll(removePacket);
-                    System.out.println("Spawned NPC: " + name);
+                    //System.out.println("Spawned NPC: " + name);
                     // 執行完後取消註冊，避免重複執行 (這部分邏輯需視你的框架而定)
                     executed = true;
                 }
             }
         });
 
-        System.out.println("Spawned NPC: " + name);
+        //System.out.println("Spawned NPC: " + name);
         return clone[0];
     }
 

@@ -9,6 +9,16 @@ public class ServerInfo {
 
     // session: 當前遊戲會話的編號或唯一標識符
     private int session = 1; // 通常從 1 開始計數
+    private boolean isBorderShrinkingStarted = false;
+
+    public boolean isBorderShrinkingStarted() {
+        return isBorderShrinkingStarted;
+    }
+
+    // Setter
+    public void setBorderShrinkingStarted(boolean started) {
+        this.isBorderShrinkingStarted = started;
+    }
 
     public ServerInfo() {}
 

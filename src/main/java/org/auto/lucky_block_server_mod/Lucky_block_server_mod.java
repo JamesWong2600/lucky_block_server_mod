@@ -23,6 +23,7 @@ import org.auto.lucky_block_server_mod.cache.PlayerSpawnTask;
 import org.auto.lucky_block_server_mod.cache.ServerInfo;
 import org.auto.lucky_block_server_mod.clone_player_entity.ClonePlayerEntity;
 import org.auto.lucky_block_server_mod.command.cinematic_manager;
+import org.auto.lucky_block_server_mod.config.ModConfig;
 import org.auto.lucky_block_server_mod.data.player_amount;
 import org.auto.lucky_block_server_mod.flow.countdown_timer;
 import org.auto.lucky_block_server_mod.flow.game_timer;
@@ -35,11 +36,12 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static org.auto.lucky_block_server_mod.anti_xray.anti_xray_air_wall.updateClientBlocksAroundPlayer;
 import static org.auto.lucky_block_server_mod.cache.CooldownManager.checkTimeouts;
-import static org.auto.lucky_block_server_mod.cache.DataMap.loadAllDataFromMongo;
-import static org.auto.lucky_block_server_mod.cache.DataMap.statsMap;
+import static org.auto.lucky_block_server_mod.cache.DataMap.*;
 import static org.auto.lucky_block_server_mod.cache.RandomEffectConfigManager.loadConfig;
 import static org.auto.lucky_block_server_mod.command.addadmin.addadmin_command_register;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
+import static org.auto.lucky_block_server_mod.data.updatePlayerCountToRedis.getServerIdentifier;
+import static org.auto.lucky_block_server_mod.data.updatePlayerCountToRedis.updatePlayerCount;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
 import static org.auto.lucky_block_server_mod.flow.game_timer.getTotalSeconds;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
@@ -67,7 +69,7 @@ public class Lucky_block_server_mod implements ModInitializer {
     public static final DataMap DATA_MANAGER = new DataMap();
     public static ServerInfo serverManager = new ServerInfo();
     public static final Queue<PlayerSpawnTask> spawnQueue = new ConcurrentLinkedQueue<>();
-
+    public static ModConfig config = new ModConfig();
     @Override
 
     public void onInitialize() {
@@ -83,11 +85,18 @@ public class Lucky_block_server_mod implements ModInitializer {
             player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
             loadConfig(server);
         });
+
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            tickCounter++;
+            if (tickCounter >= 20) { // 每 5 秒執行一次
+                tickCounter = 0;
+                updatePlayerCount(server);
+            }
+        });
+
         addadmin_command_register();
-        loadAllDataFromMongo();
-
-        serverManager.setGroup(4); // 例如，設定起始分組數為 4
-
+        loadAllDataFromMongo();// 例如，設定起始分組數為 4
+        loadAdminCache();
         // 🌟 新增：將初始化時的伺服器狀態立即寫入到 MongoDB
         DATA_MANAGER.flushServerInfoToMongo(serverManager);
         // 2. 等待 MongoDB 連接建立（可選，確保連接成功）
@@ -118,7 +127,7 @@ public class Lucky_block_server_mod implements ModInitializer {
                     if (playerToSpawnFor != null) {
                         ClonePlayerEntity.spawnAtRandomTopPos(playerToSpawnFor, radius);
                     } else {
-                        System.out.println("⚠️ [Spawn Task] Player " + uuid + " logged out while waiting for spawn task.");
+                       // System.out.println("⚠️ [Spawn Task] Player " + uuid + " logged out while waiting for spawn task.");
                     }
                 }
             }
@@ -131,27 +140,27 @@ public class Lucky_block_server_mod implements ModInitializer {
                     currentServerInfo.setSession(3);
                 }
 
+                // 在 Session 3 的邏輯中
                 if (currentServerInfo.getSession() == 3) {
-                    // 💡 這裡改為直接派發原生世界邊界指令
-                    // 假設你想縮到「半徑 50 格」（直徑 100），耗時 30 秒，可以這樣寫：
-                    int targetRadius = 300;
-                    int shrinkTimeSeconds = 500;
+                    // 檢查是否已經啟動過縮小（避免重複執行指令）
+                    if (!currentServerInfo.isBorderShrinkingStarted()) {
+                        int targetRadius = 300;
+                        int shrinkTimeSeconds = 500;
+                        int diameter = targetRadius * 2;
 
-                    // ⚠️ 注意：Minecraft 原生 /worldborder set 接受的是「直徑」，所以半徑要乘以 2
-                    int diameter = targetRadius * 2;
+                        // 執行一次指令，Minecraft 會自動在接下來 500 秒內線性縮小
+                        String command = String.format("/worldborder set %d %d", diameter, shrinkTimeSeconds);
+                        System.out.println(command);
+                        server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
 
-                    String command = String.format("worldborder set %d %d", diameter, shrinkTimeSeconds);
-
-                    // 執行指令（使用伺服器最高權限後台執行）
-                    server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
-
-                    // 避免每秒都重複執行指令，通常執行完後會把 session 推進或標記
-                    currentServerInfo.setSession(4);
+                        currentServerInfo.setBorderShrinkingStarted(true); // 標記已開始
+                        System.out.println("世界邊界開始縮小，預計 500 秒後達到半徑 300 格。");
+                    }
                 }
 
                 System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
-                    player_amount.updateRedisCount(server);
+                    //player_amount.updateRedisCount(server);
                     checkTimeouts();
                 }
             }
@@ -163,10 +172,10 @@ public class Lucky_block_server_mod implements ModInitializer {
                 serverManager.setTimeRunned(newTimeRunned);
 
                 DATA_MANAGER.flushServerInfoToMongo(serverManager);
-                System.out.println("[TASK] Global server state saved.");
+               // System.out.println("[TASK] Global server state saved.");
 
-                System.out.println(statsMap);
-                System.out.println(GetGameFlow());
+                //System.out.println(statsMap);
+                //System.out.println(GetGameFlow());
                 CompletableFuture.runAsync(DATA_MANAGER::flushToMongo);
             }
         });

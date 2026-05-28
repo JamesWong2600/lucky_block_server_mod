@@ -14,8 +14,10 @@ import redis.clients.jedis.JedisPoolConfig;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Set;
 
+import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.isClonePlayer;
 import static org.auto.lucky_block_server_mod.message.cross_server_msg.startListening;
 
 
@@ -87,15 +89,25 @@ public class player_amount {
 
     public static int getGlobalPlayerAmount() {
         if (pool == null) return 0;
+
         int total = 0;
+        // 使用 hvals 直接獲取所有 Field 的值，不需要遍歷 Key
         try (Jedis jedis = pool.getResource()) {
-            Set<String> keys = jedis.keys(REDIS_KEY_PREFIX + "*");
-            for (String key : keys) {
-                String val = jedis.get(key);
-                if (val != null) total += Integer.parseInt(val);
+            // 直接取得 "game:servers" 這個 Hash 下的所有人數值
+            Map<String, String> allServers = jedis.hgetAll("game:servers");
+
+            if (allServers != null) {
+                for (String count : allServers.values()) {
+                    try {
+                        total += Integer.parseInt(count);
+                    } catch (NumberFormatException e) {
+                        // 忽略格式錯誤的數值
+                    }
+                }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            // 使用你的日誌系統記錄錯誤，而不是 e.printStackTrace()
+            System.err.println("無法獲取全局人數: " + e.getMessage());
         }
         return total;
     }
@@ -106,6 +118,10 @@ public class player_amount {
 
     public static int getLocalPlayerAmount(MinecraftServer server) {
         if (server == null) return 0;
-        return server.getCurrentPlayerCount();
+        return (int) server.getPlayerManager().getPlayerList().stream()
+                .filter(player -> !isClonePlayer(player))
+                .count();
     }
+
+
 }

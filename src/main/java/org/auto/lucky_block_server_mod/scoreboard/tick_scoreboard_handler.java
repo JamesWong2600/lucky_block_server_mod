@@ -25,7 +25,7 @@ public class tick_scoreboard_handler {
                 tickCounter = 0;
 
                 // 1. 更新全域人數到 Redis
-                player_amount.updateRedisCount(server);
+                //player_amount.updateRedisCount(server);
 
                 // 2. 獲取數據
                 int local = getLocalPlayerAmount(server);

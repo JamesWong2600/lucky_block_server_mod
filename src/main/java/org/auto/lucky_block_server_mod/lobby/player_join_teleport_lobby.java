@@ -37,7 +37,7 @@ public class player_join_teleport_lobby {
 
         public static final DataMap DATA_MANAGER = new DataMap();
 
-    private static boolean isClonePlayer(ServerPlayerEntity player) {
+    public static boolean isClonePlayer(ServerPlayerEntity player) {
         // 直接檢查加入的玩家是否是 ClonePlayerEntity 類型
         return player instanceof ClonePlayerEntity;
     }

@@ -28,13 +28,15 @@ import static org.auto.lucky_block_server_mod.command.cinematic_manager.startCin
 import static org.auto.lucky_block_server_mod.flow.flow_controller.StartGameFlow;
 import static org.auto.lucky_block_server_mod.flow.countdown_timer.startCountdown;
 import static org.auto.lucky_block_server_mod.flow.game_timer.startTimer;
+import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.isClonePlayer;
 
 
 public class startcommand {
+
     public static void command_register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(CommandManager.literal("start")
-                    .requires(source -> source.hasPermissionLevel(2))
+                    .requires(source -> Lucky_block_server_mod.DATA_MANAGER.isAdminInCache(source.getPlayer().getUuid()))
                     .then(CommandManager.argument("seconds", IntegerArgumentType.integer(10, 3600))
                             .executes(context -> {
                                 startCountdown(context.getSource()); // 傳入當前的 source
@@ -45,44 +47,48 @@ public class startcommand {
             );
         });
     }
-    public static int startEvent(ServerCommandSource source, int seconds) {
 
+    public static int startEvent(ServerCommandSource source, int seconds) {
         MinecraftServer server = source.getServer();
         ServerWorld world = server.getOverworld();
-
-
 
         try {
             serverManager.setSession(2);
 
             server.getPlayerManager().broadcast(Text.literal("§6§l[EVENT] §aMatch Started!"), false);
 
+            // 複製一份當前線上的所有玩家列表
             List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
 
             for (ServerPlayerEntity player : participants) {
 
                 System.out.println("head on");
 
-                if(player.hasPermissionLevel(4)) {
-                    System.out.println("Skipping player with permission level 4: " + player.getName().getString());
-                    continue;  // 只跳過這個玩家，不中斷整個方法
+                // 1. 🌟 徹底取代原本的 OP 等級 4 判斷，改由快取檢查是否為自訂 Admin
+                if (Lucky_block_server_mod.DATA_MANAGER.isAdminInCache(player.getUuid())) {
+                    System.out.println("Skipping admin player: " + player.getName().getString());
+                    continue;  // 跳過管理員，不為其生成 NPC 或進入鏡頭，且不中斷整個迴圈
                 }
 
                 System.out.println("head off");
-                if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
+
+                // 2. 🌟 統一使用 isClonePlayer 排除 NPC，並排除已被移除的實體
+                if (isClonePlayer(player) || player.isRemoved()) {
+                    continue;
+                }
 
                 // 搜尋現有的克隆體
                 ClonePlayerEntity existingClone = findExistingClone(world, player);
 
                 if (existingClone != null) {
                     // 已有克隆體，直接進入鏡頭
-                    startCinematicSequence(player, existingClone,120);
+                    startCinematicSequence(player, existingClone, 120);
                 } else {
                     // 沒有克隆體，啟動非同步生成流程
                     spawnAtRandomTopPosAsync(player, 800).thenAccept(newClone -> {
                         if (newClone != null) {
                             // 這裡已經回到伺服器主線程，可以安全操作
-                            startCinematicSequence(player, (ClonePlayerEntity) newClone,120);
+                            startCinematicSequence(player, (ClonePlayerEntity) newClone, 120);
                         }
                     }).exceptionally(ex -> {
                         ex.printStackTrace();
@@ -101,7 +107,7 @@ public class startcommand {
         return 1;
     }
 
-    // 輔助方法：尋找克隆體
+    // 輔助方法：尋找克隆體（保持不變）
     private static ClonePlayerEntity findExistingClone(ServerWorld world, ServerPlayerEntity player) {
         for (var entity : world.iterateEntities()) {
             if (entity instanceof ClonePlayerEntity c) {
@@ -115,7 +121,7 @@ public class startcommand {
         return null;
     }
 
-
+    // 非同步生成克隆體方法（保持不變）
     public static CompletableFuture<Object> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
         MinecraftServer server = player.getServer();
         ServerWorld world = player.getServerWorld();
@@ -140,6 +146,102 @@ public class startcommand {
                     return spawnClone(server, world, safeTruncate(player.getName().getString()), player.getUuid(), targetPos);
                 }, server); // 確保在伺服器主線程回調
     }
+
+//    public static int startEvent(ServerCommandSource source, int seconds) {
+//
+//        MinecraftServer server = source.getServer();
+//        ServerWorld world = server.getOverworld();
+//
+//
+//
+//        try {
+//            serverManager.setSession(2);
+//
+//            server.getPlayerManager().broadcast(Text.literal("§6§l[EVENT] §aMatch Started!"), false);
+//
+//            List<ServerPlayerEntity> participants = new ArrayList<>(server.getPlayerManager().getPlayerList());
+//
+//            for (ServerPlayerEntity player : participants) {
+//
+//                System.out.println("head on");
+//
+//                if(player.hasPermissionLevel(4)) {
+//                    System.out.println("Skipping player with permission level 4: " + player.getName().getString());
+//                    continue;  // 只跳過這個玩家，不中斷整個方法
+//                }
+//
+//                System.out.println("head off");
+//                if (player instanceof ClonePlayerEntity || player.isRemoved()) continue;
+//
+//                // 搜尋現有的克隆體
+//                ClonePlayerEntity existingClone = findExistingClone(world, player);
+//
+//                if (existingClone != null) {
+//                    // 已有克隆體，直接進入鏡頭
+//                    startCinematicSequence(player, existingClone,120);
+//                } else {
+//                    // 沒有克隆體，啟動非同步生成流程
+//                    spawnAtRandomTopPosAsync(player, 800).thenAccept(newClone -> {
+//                        if (newClone != null) {
+//                            // 這裡已經回到伺服器主線程，可以安全操作
+//                            startCinematicSequence(player, (ClonePlayerEntity) newClone,120);
+//                        }
+//                    }).exceptionally(ex -> {
+//                        ex.printStackTrace();
+//                        return null;
+//                    });
+//                }
+//            }
+//
+//            // 播放音效等後續邏輯...
+//            source.sendFeedback(() -> Text.literal("§aEvent Process Started!"), true);
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return 0;
+//        }
+//        return 1;
+//    }
+//
+//    // 輔助方法：尋找克隆體
+//    private static ClonePlayerEntity findExistingClone(ServerWorld world, ServerPlayerEntity player) {
+//        for (var entity : world.iterateEntities()) {
+//            if (entity instanceof ClonePlayerEntity c) {
+//                PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
+//                if (c.getUuid().equals(playerData.getClone_uuid())) {
+//                    System.out.println("找到了");
+//                    return c; // 找到就立即返回
+//                }
+//            }
+//        }
+//        return null;
+//    }
+//
+//
+//    public static CompletableFuture<Object> spawnAtRandomTopPosAsync(ServerPlayerEntity player, int radius) {
+//        MinecraftServer server = player.getServer();
+//        ServerWorld world = player.getServerWorld();
+//        BlockPos center = player.getBlockPos();
+//
+//        Random random = new Random();
+//        int randomX = center.getX() + (random.nextInt(radius * 2 + 1) - radius);
+//        int randomZ = center.getZ() + (random.nextInt(radius * 2 + 1) - radius);
+//        ChunkPos chunkPos = new ChunkPos(randomX >> 4, randomZ >> 4);
+//
+//        // 1. 向伺服器請求非同步載入區塊
+//        return world.getChunkManager()
+//                .getChunkFutureSyncOnMainThread(chunkPos.x, chunkPos.z, ChunkStatus.FULL, true)
+//                .thenApplyAsync(either -> {
+//                    // 2. 這裡已經是在主線程執行，且區塊已載入完成
+//                    int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, randomX, randomZ);
+//                    if (topY < world.getBottomY()) topY = world.getSeaLevel();
+//
+//                    BlockPos targetPos = new BlockPos(randomX, topY, randomZ);
+//
+//                    // 3. 呼叫原本的生成方法
+//                    return spawnClone(server, world, safeTruncate(player.getName().getString()), player.getUuid(), targetPos);
+//                }, server); // 確保在伺服器主線程回調
+//    }
 
 
 //    public static void startCinematicSequence(ServerPlayerEntity player, ClonePlayerEntity clone) {
