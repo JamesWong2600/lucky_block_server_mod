@@ -40,6 +40,8 @@ import static org.auto.lucky_block_server_mod.cache.DataMap.*;
 import static org.auto.lucky_block_server_mod.cache.RandomEffectConfigManager.loadConfig;
 import static org.auto.lucky_block_server_mod.command.addadmin.addadmin_command_register;
 import static org.auto.lucky_block_server_mod.command.startcommand.command_register;
+import static org.auto.lucky_block_server_mod.config.ModConfig.loadConfigFromFile;
+import static org.auto.lucky_block_server_mod.config.ModConfig.saveConfigToFile;
 import static org.auto.lucky_block_server_mod.data.updatePlayerCountToRedis.getServerIdentifier;
 import static org.auto.lucky_block_server_mod.data.updatePlayerCountToRedis.updatePlayerCount;
 import static org.auto.lucky_block_server_mod.flow.flow_controller.GetGameFlow;
@@ -66,13 +68,23 @@ public class Lucky_block_server_mod implements ModInitializer {
     private int tickCounter = 0;
     public static double currentMspt = -1;
 
+
+
     public static final DataMap DATA_MANAGER = new DataMap();
     public static ServerInfo serverManager = new ServerInfo();
     public static final Queue<PlayerSpawnTask> spawnQueue = new ConcurrentLinkedQueue<>();
-    public static ModConfig config = new ModConfig();
+//    public static ModConfig config = new ModConfig();
+    public static ModConfig CONFIG;
     @Override
 
     public void onInitialize() {
+        CONFIG = loadConfigFromFile();
+
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            CONFIG.server.initId(server);
+            saveConfigToFile();
+        });
+
         Path configDir = FabricLoader.getInstance().getConfigDir();
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (!world.isClient()) {
@@ -84,6 +96,7 @@ public class Lucky_block_server_mod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
             loadConfig(server);
+            loadAdminCache();
         });
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
@@ -96,9 +109,9 @@ public class Lucky_block_server_mod implements ModInitializer {
 
         addadmin_command_register();
         loadAllDataFromMongo();// 例如，設定起始分組數為 4
-        loadAdminCache();
+
         // 🌟 新增：將初始化時的伺服器狀態立即寫入到 MongoDB
-        DATA_MANAGER.flushServerInfoToMongo(serverManager);
+        //DATA_MANAGER.flushServerInfoToMongo(serverManager);
         // 2. 等待 MongoDB 連接建立（可選，確保連接成功）
 //        try {
 //            //Thread.sleep(100);
@@ -158,7 +171,7 @@ public class Lucky_block_server_mod implements ModInitializer {
                     }
                 }
 
-                System.out.println(currentServerInfo.getSession());
+                //System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
                     //player_amount.updateRedisCount(server);
                     checkTimeouts();
@@ -170,8 +183,8 @@ public class Lucky_block_server_mod implements ModInitializer {
                 System.out.println("\n[TASK] Running Maintenance Task...");
                 long newTimeRunned = serverManager.getTimeRunned() + 5000;
                 serverManager.setTimeRunned(newTimeRunned);
-
-                DATA_MANAGER.flushServerInfoToMongo(serverManager);
+                String serverId = Lucky_block_server_mod.CONFIG.server.id;
+                DATA_MANAGER.flushServerInfoToMongo(serverManager, serverId);
                // System.out.println("[TASK] Global server state saved.");
 
                 //System.out.println(statsMap);

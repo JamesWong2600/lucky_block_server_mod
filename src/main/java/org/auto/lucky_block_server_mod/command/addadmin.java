@@ -34,35 +34,37 @@ public class addadmin {
                     .requires(source -> source.hasPermissionLevel(2))
                     .then(CommandManager.argument("name", StringArgumentType.string())
                             .executes(context -> {
-                                dataMap = new DataMap();
-
+                                // !!! 注意：請確保 dataMap 是全域單例，不要在這裡 new !!!
                                 ServerCommandSource source = context.getSource();
                                 String name = StringArgumentType.getString(context, "name");
-                                MinecraftServer server = source.getServer(); // 取得伺服器實體
+                                MinecraftServer server = source.getServer();
 
                                 getUUIDFromMojang(name).thenAccept(uuid -> {
-                                    // 強制將執行緒切回主執行緒執行
                                     server.execute(() -> {
                                         if (uuid == null) {
                                             source.sendError(Text.literal("§c[錯誤] 無法取得 UUID，請確認名稱。"));
                                             return;
                                         }
-                                        adminCache.put()
+
                                         String rawPassword = UUID.randomUUID().toString().replace("-", "");
+
+                                        // 1. 同步寫入資料庫
                                         dataMap.flushAdminDataToMongo(uuid, 99, rawPassword);
+
+                                        // 2. 🌟 這裡必須更新快取！
+                                        // 假設你的 adminCache 是一個 Set<UUID>
+                                        adminCache.add(uuid);
 
                                         source.sendFeedback(() -> Text.literal("§a[管理] 已為 " + name + " 指派 Admin。"), true);
                                         source.sendFeedback(() -> Text.literal("§e密碼: §b" + rawPassword), false);
                                     });
                                 });
-
                                 return 1;
                             })
                     )
             );
         });
     }
-
 //            dispatcher.register(CommandManager.literal("addadmin")
 //                    // 只有 OP 2 以上或控制台能指派 Admin
 //                    .requires(source -> source.hasPermissionLevel(2))

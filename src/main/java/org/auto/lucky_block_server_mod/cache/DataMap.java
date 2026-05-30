@@ -316,7 +316,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DataMap {
 
     public static final Map<UUID, PlayerData> statsMap = new ConcurrentHashMap<>();
-    public static final Set<UUID> adminCache = ConcurrentHashMap.newKeySet();
+    public static final Set<UUID> adminCache = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static ModConfig config;
 
     private MongoClient mongoClient;
@@ -449,17 +449,27 @@ public class DataMap {
             cooldownCollection.replaceOne(new Document("_id", uuid.toString()), doc, new ReplaceOptions().upsert(true));
         });
     }
-
-    public void flushServerInfoToMongo(ServerInfo info) {
+    public void flushServerInfoToMongo(ServerInfo info, String serverId) {
         if (serverDataCollection == null || info == null) return;
-        config = new ModConfig();
+
         Document doc = new Document()
                 .append("session", info.getSession())
-               // .append("group", info.getGroup())
                 .append("timeRunned", info.getTimeRunned())
                 .append("last_updated", System.currentTimeMillis());
-        serverDataCollection.replaceOne(new Document("_id", config.server.id), doc, new ReplaceOptions().upsert(true));
+
+        // 直接使用傳入的 serverId，或者使用我們之前寫過的 getServerIdentifier()
+        serverDataCollection.replaceOne(new Document("_id", serverId), doc, new ReplaceOptions().upsert(true));
     }
+//    public void flushServerInfoToMongo(ServerInfo info) {
+//        if (serverDataCollection == null || info == null) return;
+//        config = new ModConfig();
+//        Document doc = new Document()
+//                .append("session", info.getSession())
+//               // .append("group", info.getGroup())
+//                .append("timeRunned", info.getTimeRunned())
+//                .append("last_updated", System.currentTimeMillis());
+//        serverDataCollection.replaceOne(new Document("_id", config.server.id), doc, new ReplaceOptions().upsert(true));
+//    }
 
     // === 請將此方法新增至你的 DataMap 類別中 ===
     /**
@@ -497,17 +507,27 @@ public class DataMap {
     }
 
     public static void loadAdminCache() {
-        if (adminCollection == null) return;
+        if (adminCollection == null) {
+            System.err.println("❌ [AdminCache] 無法載入：adminCollection 為 null！");
+            return;
+        }
 
         adminCache.clear();
+
+        // 檢查資料庫是否有資料
+        long count = adminCollection.countDocuments();
+        System.out.println("🔍 [AdminCache] 資料庫中共有 " + count + " 筆 Admin 記錄。");
+
         adminCollection.find().forEach(doc -> {
+            String idStr = doc.getString("_id");
+            System.out.println("DEBUG: 讀取到 Admin ID -> " + idStr); // 看看這裡有沒有輸出
             try {
-                adminCache.add(UUID.fromString(doc.getString("_id")));
+                adminCache.add(UUID.fromString(idStr));
             } catch (Exception e) {
-                System.err.println("⚠️ 無法解析 Admin UUID: " + doc.getString("_id"));
+                System.err.println("⚠️ 無法解析 Admin UUID: " + idStr);
             }
         });
-        System.out.println("✅ Admin 記憶體快取已載入，共 " + adminCache.size() + " 位管理員。");
+        System.out.println("✅ [AdminCache] 記憶體快取載入完畢，目前大小: " + adminCache.size());
     }
     /**
      * 從 MongoDB 的 "admindata" 集合非同步驗證 Admin 身分與密碼
