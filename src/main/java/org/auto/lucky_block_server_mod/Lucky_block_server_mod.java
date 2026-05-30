@@ -49,6 +49,7 @@ import static org.auto.lucky_block_server_mod.flow.game_timer.getTotalSeconds;
 import static org.auto.lucky_block_server_mod.lobby.lobby_gen.generateGlassRoom;
 import static org.auto.lucky_block_server_mod.lobby.player_join_teleport_lobby.lobby_teleport_register;
 import static org.auto.lucky_block_server_mod.performance_stat.NetWorkStuff.getCurrentMspt;
+import static org.auto.lucky_block_server_mod.proxy.GameProxyServer.startProxyServer;
 import static org.auto.lucky_block_server_mod.scoreboard.tick_scoreboard_handler.timer_register;
 import static org.auto.lucky_block_server_mod.server_init.server_initer;
 
@@ -79,13 +80,22 @@ public class Lucky_block_server_mod implements ModInitializer {
 
     public void onInitialize() {
         CONFIG = loadConfigFromFile();
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> {
+            player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
+            loadConfig(server);
+            loadAdminCache();
+            System.out.println("statsMap="+statsMap);
+        });
 
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CONFIG.server.initId(server);
             saveConfigToFile();
+            startProxyServer(server);
         });
 
-        Path configDir = FabricLoader.getInstance().getConfigDir();
+
         PlayerBlockBreakEvents.BEFORE.register((world, player, pos, state, blockEntity) -> {
             if (!world.isClient()) {
                 updateClientBlocksAroundPlayer(player, pos);
@@ -93,11 +103,7 @@ public class Lucky_block_server_mod implements ModInitializer {
             return true;
         });
         // 初始化 (傳入路徑與你的 DataMap 實例)
-        ServerLifecycleEvents.SERVER_STARTING.register(server -> {
-            player_amount.init(configDir, Lucky_block_server_mod.DATA_MANAGER, server);
-            loadConfig(server);
-            loadAdminCache();
-        });
+
 
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             tickCounter++;
@@ -162,7 +168,7 @@ public class Lucky_block_server_mod implements ModInitializer {
                         int diameter = targetRadius * 2;
 
                         // 執行一次指令，Minecraft 會自動在接下來 500 秒內線性縮小
-                        String command = String.format("/worldborder set %d %d", diameter, shrinkTimeSeconds);
+                        String command = String.format("worldborder set %d %d", diameter, shrinkTimeSeconds);
                         System.out.println(command);
                         server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
 
@@ -269,6 +275,8 @@ public class Lucky_block_server_mod implements ModInitializer {
                 System.out.println("SUCESS BOARDER");
             }
         });
+
+
         ServerWorldEvents.LOAD.register((server, world) -> {
             if (world.getRegistryKey() == LOBBY_WORLD_KEY && !generated) {
                 generateGlassRoom(world);

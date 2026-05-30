@@ -19,10 +19,12 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.auto.lucky_block_server_mod.cache.DataMap.adminCache;
+import static org.auto.lucky_block_server_mod.cache.DataMap.flushAdminDataToMongo;
 
 public class addadmin {
 
@@ -34,87 +36,83 @@ public class addadmin {
                     .requires(source -> source.hasPermissionLevel(2))
                     .then(CommandManager.argument("name", StringArgumentType.string())
                             .executes(context -> {
-                                // !!! 注意：請確保 dataMap 是全域單例，不要在這裡 new !!!
                                 ServerCommandSource source = context.getSource();
                                 String name = StringArgumentType.getString(context, "name");
                                 MinecraftServer server = source.getServer();
 
-                                getUUIDFromMojang(name).thenAccept(uuid -> {
-                                    server.execute(() -> {
-                                        if (uuid == null) {
-                                            source.sendError(Text.literal("§c[錯誤] 無法取得 UUID，請確認名稱。"));
-                                            return;
-                                        }
+                                // 統一呼叫這一個方法即可
+                                promotePlayer(server, source, name);
 
-                                        String rawPassword = UUID.randomUUID().toString().replace("-", "");
-
-                                        // 1. 同步寫入資料庫
-                                        dataMap.flushAdminDataToMongo(uuid, 99, rawPassword);
-
-                                        // 2. 🌟 這裡必須更新快取！
-                                        // 假設你的 adminCache 是一個 Set<UUID>
-                                        adminCache.add(uuid);
-
-                                        source.sendFeedback(() -> Text.literal("§a[管理] 已為 " + name + " 指派 Admin。"), true);
-                                        source.sendFeedback(() -> Text.literal("§e密碼: §b" + rawPassword), false);
-                                    });
-                                });
                                 return 1;
                             })
                     )
             );
         });
     }
-//            dispatcher.register(CommandManager.literal("addadmin")
-//                    // 只有 OP 2 以上或控制台能指派 Admin
-//                    .requires(source -> source.hasPermissionLevel(2))
-//                    .then(CommandManager.argument("target", EntityArgumentType.player())
-//                            .executes(context -> {
-//                                ServerCommandSource source = context.getSource();
-//                                ServerPlayerEntity targetPlayer = EntityArgumentType.getPlayer(context, "target");
-//
-//                                UUID uuid = targetPlayer.getUuid();
-//                                String name = targetPlayer.getName().getString();
-//
-//                                dataMap = new DataMap();
-//
-//                                if (dataMap == null) {
-//
-//                                    source.sendError(Text.literal("§c[錯誤] DataMap 尚未初始化，無法執行指令！"));
-//                                    return 0;
-//                                }
-//
-//                                // 1. 產生 32 位不含橫槓的隨機密碼
-//                                String rawPassword = UUID.randomUUID().toString().replace("-", "");
-//                                int adminGroupCode = 99; // 管理組代號
-//
-//                                // 2. 更新遊戲內記憶體狀態
-//                                PlayerData pData = dataMap.getPlayerData(uuid);
-//                                pData.group = adminGroupCode;
-//
-//                                // 3. 提示執行者並附帶「點擊複製密碼」功能
-//                                source.sendFeedback(() -> Text.literal("§a[管理] 已將 " + name + " 指派為 Admin，權限已寫入 admindata 表。"), true);
-//
-//                                Text passwordText = Text.literal("§e生成 32 位安全密碼為: §b" + rawPassword + " §7[點擊複製]")
-//                                        .styled(style -> style
-//                                                .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, rawPassword))
-//                                                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("點擊複製密碼"))));
-//                                source.sendFeedback(() -> passwordText, false);
-//
-//                                // 4. 通知目標玩家（不透露密碼）
-//                                if (source.getPlayer() != targetPlayer) {
-//                                    targetPlayer.sendMessage(Text.literal("§6你已被提升為 Admin 身分組！請聯絡後台索取你的管理驗證密碼。"), false);
-//                                }
-//
-//                                // 5. 🌟 立馬非同步 Flush 到獨立的 "admindata" Collection
-//                                dataMap.flushAdminDataToMongo(uuid, adminGroupCode, rawPassword);
-//
-//                                return 1;
-//                            })
-//                    )
-//            );
-//        });
 
+    public static void promotePlayer(MinecraftServer server, ServerCommandSource source, String name) {
+        if (server.isOnlineMode()) {
+            getUUIDFromMojang(name).thenAccept(uuid -> {
+                if (uuid == null) {
+                    source.sendError(Text.literal("§c[錯誤] 無法取得 UUID。"));
+                } else {
+                    executePromotion(source, uuid, name);
+                }
+            });
+        } else {
+            // 離線模式 UUID 生成
+            UUID uuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            executePromotion(source, uuid, name);
+        }
+    }
+
+    private static void handleAdminPromotion(ServerCommandSource source, UUID uuid, String name) {
+        source.getServer().execute(() -> {
+            String rawPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 16); // 取前16位比較好記
+
+            // 1. 同步寫入資料庫
+            dataMap.flushAdminDataToMongo(uuid, 99, rawPassword);
+
+            // 2. 更新記憶體快取
+            adminCache.add(uuid);
+
+            source.sendFeedback(() -> Text.literal("§a[管理] 已為離線玩家 " + name + " 指派 Admin。"), true);
+            source.sendFeedback(() -> Text.literal("§e密碼: §b" + rawPassword), false);
+        });
+    }
+
+    public void promotePlayerToAdmin(MinecraftServer server, ServerCommandSource source, String name) {
+        UUID targetUuid;
+
+        // 判斷線上/離線模式生成 UUID
+        if (server.isOnlineMode()) {
+            getUUIDFromMojang(name).thenAccept(uuid -> {
+                if (uuid == null) {
+                    source.sendError(Text.literal("§c[錯誤] 無法取得 UUID。"));
+                } else {
+                    executePromotion(source, uuid, name);
+                }
+            });
+            return;
+        } else {
+            // 離線模式 UUID 生成算法
+            targetUuid = UUID.nameUUIDFromBytes(("OfflinePlayer:" + name).getBytes(StandardCharsets.UTF_8));
+            executePromotion(source, targetUuid, name);
+        }
+    }
+
+    private static void executePromotion(ServerCommandSource source, UUID uuid, String name) {
+        String rawPassword = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+
+        // 1. 同步寫入資料庫
+        flushAdminDataToMongo(uuid, 99, rawPassword);
+
+        // 2. 更新記憶體快取 (確保 adminCache 已載入)
+        adminCache.add(uuid);
+
+        source.sendFeedback(() -> Text.literal("§a[管理] 已為玩家 " + name + " 指派 Admin。"), true);
+        source.sendFeedback(() -> Text.literal("§e密碼: §b" + rawPassword), false);
+    }
 
     public static CompletableFuture<UUID> getUUIDFromMojang(String username) {
         return CompletableFuture.supplyAsync(() -> {

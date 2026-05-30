@@ -385,11 +385,14 @@ public class DataMap {
     }
 
     // --- 玩家資料 API ---
-
-    public PlayerData getPlayerData(UUID uuid) {
-        if (uuid == null) throw new IllegalArgumentException("UUID cannot be null");
+    public static PlayerData getPlayerData(UUID uuid) {
+        // 確保所有來自 Proxy 或 Mod 的請求都能安全地存取這份記憶體
         return statsMap.computeIfAbsent(uuid, PlayerData::new);
     }
+//    public PlayerData getPlayerData(UUID uuid) {
+//        if (uuid == null) throw new IllegalArgumentException("UUID cannot be null");
+//        return statsMap.computeIfAbsent(uuid, PlayerData::new);
+//    }
 
     public void saveInitialData(UUID uuid) {
         if (collection == null) return;
@@ -397,7 +400,7 @@ public class DataMap {
         collection.replaceOne(new Document("_id", uuid.toString()), toDocument(p), new ReplaceOptions().upsert(true));
     }
 
-    public void loadFromMongo(UUID uuid) {
+    public static void loadFromMongo(UUID uuid) {
         if (collection == null) return;
         Document doc = collection.find(new Document("_id", uuid.toString())).first();
         if (doc != null) {
@@ -434,6 +437,30 @@ public class DataMap {
                 });
             } catch (Exception e) {
                 e.printStackTrace();
+            }
+        });
+    }
+
+    public void initPlayerData(UUID uuid) {
+        if (uuid == null) return;
+
+        // 1. 先確認記憶體是否已經有資料，避免重複讀取
+        if (statsMap.containsKey(uuid)) {
+            return;
+        }
+
+        // 2. 進行非同步讀取，避免登入時卡頓
+        CompletableFuture.runAsync(() -> {
+            if (existsInMongo(uuid)) {
+                // MongoDB 有資料：讀取並存入 statsMap
+                loadFromMongo(uuid);
+                System.out.println("✅ [Data] 玩家數據已從 MongoDB 載入: " + uuid);
+            } else {
+                // MongoDB 沒資料：初始化一個全新的 PlayerData 物件並存入記憶體
+                statsMap.put(uuid, new PlayerData(uuid));
+                // 建議同時將新資料存入 MongoDB，完成初始同步
+                saveInitialData(uuid);
+                System.out.println("✨ [Data] 玩家首次登入，已建立新資料: " + uuid);
             }
         });
     }
@@ -475,7 +502,7 @@ public class DataMap {
     /**
      * 立刻將單一玩家的最新記憶體資料（statsMap）非同步刷入 MongoDB
      */
-    public void flushAdminDataToMongo(UUID uuid, int group, String password) {
+    public static void flushAdminDataToMongo(UUID uuid, int group, String password) {
         if (adminCollection == null || uuid == null || password == null) return;
 
         // 丟進非同步執行緒，確保遊戲絕對不卡頓
