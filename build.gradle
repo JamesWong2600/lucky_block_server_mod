@@ -59,6 +59,7 @@ dependencies {
     // 關鍵：將 Jedis 打包進 Mod 中，否則伺服器運行時會找不到類別
     include 'redis.clients:jedis:5.1.0'
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
 }
 
 processResources {

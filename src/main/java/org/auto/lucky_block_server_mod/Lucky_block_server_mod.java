@@ -92,7 +92,7 @@ public class Lucky_block_server_mod implements ModInitializer {
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             CONFIG.server.initId(server);
             saveConfigToFile();
-            startProxyServer(server);
+            //startProxyServer(server);
         });
 
 
@@ -152,37 +152,20 @@ public class Lucky_block_server_mod implements ModInitializer {
             }
 
             ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
-
+            if (currentServerInfo.getSession() == 3) {
+                shrinkBorder(server);
+            }
             // 每 20 tick (1秒) 檢查一次
             if (server.getTicks() % 20 == 0) {
                 if (getTotalSeconds() > 100) {
                     currentServerInfo.setSession(3);
                 }
-
-                // 在 Session 3 的邏輯中
-                if (currentServerInfo.getSession() == 3) {
-                    // 檢查是否已經啟動過縮小（避免重複執行指令）
-                    if (!currentServerInfo.isBorderShrinkingStarted()) {
-                        int targetRadius = 300;
-                        int shrinkTimeSeconds = 500;
-                        int diameter = targetRadius * 2;
-
-                        // 執行一次指令，Minecraft 會自動在接下來 500 秒內線性縮小
-                        String command = String.format("worldborder set %d %d", diameter, shrinkTimeSeconds);
-                        System.out.println(command);
-                        server.getCommandManager().executeWithPrefix(server.getCommandSource(), command);
-
-                        currentServerInfo.setBorderShrinkingStarted(true); // 標記已開始
-                        System.out.println("世界邊界開始縮小，預計 500 秒後達到半徑 300 格。");
-                    }
                 }
-
                 //System.out.println(currentServerInfo.getSession());
                 if (currentServerInfo.getSession() == 2) {
                     //player_amount.updateRedisCount(server);
                     checkTimeouts();
                 }
-            }
 
             // 每 5 秒數據 Flush
             if (server.getTicks() % 100 == 0) {
@@ -305,49 +288,103 @@ public class Lucky_block_server_mod implements ModInitializer {
 //            }
 //        });
     }
+
     private void shrinkBorder(MinecraftServer server) {
-        WorldBorder worldBorder = server.getOverworld().getWorldBorder();
-        int totalSeconds = getTotalSeconds();
+        ServerWorld overworld = server.getOverworld();
+        if (overworld == null) return;
+
+        WorldBorder worldBorder = overworld.getWorldBorder();
+        int totalSeconds = getTotalSeconds(); // 假設這個方法獲取已流逝秒數
 
         // 總時間 300 秒（5分鐘）
         int totalTime = 300;
-        int remainingTime = totalTime - totalSeconds;
+        int remainingTime = Math.max(0, totalTime - totalSeconds);
 
-        double currentSize; // 單位：方塊（總寬度）
+        double minSize = 10.0;  // 最小邊界大小（方塊數）
+        double maxSize = 1600.0; // 最大邊界大小（方塊數）
 
-        // 最小邊界大小（可調整，越小越刺激）
-        double minSize = 10.0;  // 改成 50，縮到 -25 到 25
-        double maxSize = 1600.0;
-
+        // 計算當前目標大小
+        double targetSize;
         if (remainingTime <= 0) {
-            currentSize = minSize; // 時間到，縮到最小
+            targetSize = minSize;
         } else {
-            // 公式：從 maxSize 開始，線性縮小到 minSize
+            // 線性插值：從 maxSize 縮小到 minSize
             double progress = (double) totalSeconds / totalTime;
-            currentSize = maxSize - (progress * (maxSize - minSize));
-            // 限制範圍
-            currentSize = Math.max(minSize, Math.min(maxSize, currentSize));
+            targetSize = maxSize - (progress * (maxSize - minSize));
+            // 確保不低於最小值
+            targetSize = Math.max(minSize, targetSize);
         }
 
-        // 執行縮小
-        if (currentSize < worldBorder.getSize()) {
-            worldBorder.setMaxRadius((int) currentSize);
-            worldBorder.setCenter(0, 0);
+        // 只有當目標大小小於當前大小時才縮小，避免反向擴大
+        if (targetSize < worldBorder.getSize()) {
+            // 【關鍵】使用 interpolateSize，時間設為剩餘時間，這樣會平滑過渡
+            // 注意：interpolateSize 的參數是 (startSize, endSize, timeInTicks)
+            // 這裡我們希望從當前大小平滑過渡到 targetSize，耗時為 remainingTime * 20 ticks
+            worldBorder.interpolateSize(worldBorder.getSize(), targetSize, remainingTime * 20);
 
-            // 發送警告（每 10 秒一次）
+            // 確保中心點在 (0,0)，如果之前沒設置過
+            if (worldBorder.getCenterX() != 0 || worldBorder.getCenterZ() != 0) {
+                worldBorder.setCenter(0, 0);
+            }
+
+            // 發送警告（每 10 秒一次，即每 200 ticks）
             if (server.getTicks() % 200 == 0) {
-                int halfSize = (int)(currentSize / 2);
+                int halfSize = (int)(targetSize / 2);
                 String message = String.format("§c⚠️ 邊界縮小到 §e%d x %d §c方塊 (§e-%d 到 %d§c) | 剩餘時間: §e%d §c秒",
-                        (int)currentSize, (int)currentSize, halfSize, halfSize, Math.max(0, remainingTime));
+                        (int)targetSize, (int)targetSize, -halfSize, halfSize, remainingTime);
                 for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                     player.sendMessage(Text.literal(message), false);
                 }
             }
 
-            System.out.printf("🌍 邊界縮小: %.1f 方塊 (±%.1f) | 剩餘時間: %d秒%n",
-                    currentSize, currentSize / 2, remainingTime);
+            System.out.printf("🌍 邊界縮小: %.1f -> %.1f (剩餘時間: %d秒)%n",
+                    worldBorder.getSize(), targetSize, remainingTime);
         }
     }
+//    private void shrinkBorder(MinecraftServer server) {
+//        WorldBorder worldBorder = server.getOverworld().getWorldBorder();
+//        int totalSeconds = getTotalSeconds();
+//
+//        // 總時間 300 秒（5分鐘）
+//        int totalTime = 300;
+//        int remainingTime = totalTime - totalSeconds;
+//
+//        double currentSize; // 單位：方塊（總寬度）
+//
+//        // 最小邊界大小（可調整，越小越刺激）
+//        double minSize = 10.0;  // 改成 50，縮到 -25 到 25
+//        double maxSize = 1600.0;
+//
+//        if (remainingTime <= 0) {
+//            currentSize = minSize; // 時間到，縮到最小
+//        } else {
+//            // 公式：從 maxSize 開始，線性縮小到 minSize
+//            double progress = (double) totalSeconds / totalTime;
+//            currentSize = maxSize - (progress * (maxSize - minSize));
+//            // 限制範圍
+//            currentSize = Math.max(minSize, Math.min(maxSize, currentSize));
+//        }
+//
+//        // 執行縮小
+//        if (currentSize < worldBorder.getSize()) {
+//            worldBorder.interpolateSize(maxSize, currentSize, remainingTime);
+//            //worldBorder.setMaxRadius((int) currentSize);
+//            worldBorder.setCenter(0, 0);
+//
+//            // 發送警告（每 10 秒一次）
+//            if (server.getTicks() % 200 == 0) {
+//                int halfSize = (int)(currentSize / 2);
+//                String message = String.format("§c⚠️ 邊界縮小到 §e%d x %d §c方塊 (§e-%d 到 %d§c) | 剩餘時間: §e%d §c秒",
+//                        (int)currentSize, (int)currentSize, halfSize, halfSize, Math.max(0, remainingTime));
+//                for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+//                    player.sendMessage(Text.literal(message), false);
+//                }
+//            }
+//
+//            System.out.printf("🌍 邊界縮小: %.1f 方塊 (±%.1f) | 剩餘時間: %d秒%n",
+//                    currentSize, currentSize / 2, remainingTime);
+//        }
+//    }
 //    private void onServerTick(MinecraftServer server) {
 //        tickCounter++;
 //

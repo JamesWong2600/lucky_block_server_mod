@@ -13,13 +13,11 @@ public class flow_controller {
         flow = 3;
     }
 
-    public static void FinalGameFlow() {
+    public static void EndGameFlow() {
         flow = 4;
     }
 
-    public static void EndGameFlow() {
-        flow = 5;
-    }
+    //public static void EndGameFlow() {flow = 5;}
 
     public static int GetGameFlow() {
         return flow;

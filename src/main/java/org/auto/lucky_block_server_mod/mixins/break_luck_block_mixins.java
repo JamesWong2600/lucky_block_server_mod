@@ -54,7 +54,7 @@ public abstract class break_luck_block_mixins {
 
         ServerInfo currentServerInfo = Lucky_block_server_mod.serverManager;
 
-        if (currentServerInfo.getSession() == 2 || currentServerInfo.getSession() == 3 || currentServerInfo.getSession() == 4 && state.isOf(Blocks.EMERALD_ORE)) {
+        if ((currentServerInfo.getSession() == 2 || currentServerInfo.getSession() == 3 || currentServerInfo.getSession() == 4) && state.isOf(Blocks.EMERALD_ORE)) {
 
             PlayerData playerData = Lucky_block_server_mod.DATA_MANAGER.getPlayerData(player.getUuid());
 

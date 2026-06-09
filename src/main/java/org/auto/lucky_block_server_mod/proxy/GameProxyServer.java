@@ -16,6 +16,7 @@ import redis.clients.jedis.JedisPool;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.auto.lucky_block_server_mod.Lucky_block_server_mod.CONFIG;
 
@@ -58,15 +59,21 @@ public class GameProxyServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) {
-                            // 這裡動態路由
-                            String backendAddress = getBestBackend();
+                            // 1. 取得玩家的連線來源 IP
+                            String clientIp = ch.remoteAddress().getAddress().getHostAddress();
+
+                            // 2. 呼叫我們剛剛改寫的、帶有快取與路由邏輯的方法
+                            String backendAddress = getBestBackend(clientIp);
+
                             if (backendAddress != null) {
                                 String[] parts = backendAddress.split(":");
                                 String host = parts[0];
                                 int port = Integer.parseInt(parts[1]);
-                                // 初始化 ProxyFrontendHandler 進行轉發
-                                ch.pipeline().addLast(new ProxyFrontendHandler(host, port));
+
+                                // 3. 使用 ProxyFrontendHandler 進行透明轉發
+                                ch.pipeline().addLast(new ProxyFrontendHandler(GameProxyServer.this));
                             } else {
+                                // 沒有可用的後端，直接斷開
                                 ch.close();
                             }
                         }
@@ -82,6 +89,8 @@ public class GameProxyServer {
             jedisPool.close();
         }
     }
+
+    
 //
 //    public void start() throws Exception {
 //        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -121,61 +130,46 @@ public class GameProxyServer {
 //            jedisPool.close();
 //        }
 //    }
-
+    private final Map<String, String> localSessionCache = new ConcurrentHashMap<>();
     // 💡 核心路由演算法：從 Redis 讀取在線人數，選人數最少的後端
-    private String getBestBackend(UUID playerUuid) {
-        // --- 第一層：檢查本地記憶體快取 (Local Cache) ---
-
-        PlayerData data = DataMap.getPlayerData(playerUuid);
-
-
-        if (playerUuid != null && localSessionCache.containsKey(playerUuid)) {
-            String cachedServer = localSessionCache.get(playerUuid);
-            // 若該後端依然在 Redis 中，則直接回傳
-            if (isBackendAvailable(cachedServer)) {
-                return cachedServer;
-            }
+    public String getBestBackend(String playerIdentifier) {
+        // 優先檢查本地記憶體
+        if (localSessionCache.containsKey(playerIdentifier)) {
+            String cached = localSessionCache.get(playerIdentifier);
+            if (isBackendAvailable(cached)) return cached;
         }
 
-        // --- 第二層：檢查 Redis 會話記錄 (Session Affinity) ---
         try (Jedis jedis = jedisPool.getResource()) {
-            if (playerUuid != null) {
-                String lastServer = jedis.get("player:session:" + playerUuid);
-                if (lastServer != null && isBackendAvailable(lastServer)) {
-                    localSessionCache.put(playerUuid, lastServer); // 更新本地快取
-                    return lastServer;
-                }
+            // 檢查 Redis 中的會話記錄
+            String lastServer = jedis.get("player:session:" + playerIdentifier);
+            if (lastServer != null && isBackendAvailable(lastServer)) {
+                localSessionCache.put(playerIdentifier, lastServer);
+                return lastServer;
             }
 
-            // --- 第三層：負載均衡 (Least Connections) ---
+            // 若無記錄，執行負載均衡
             Map<String, String> servers = jedis.hgetAll("game:servers");
             if (servers == null || servers.isEmpty()) return null;
 
             String bestServer = null;
             int minPlayers = Integer.MAX_VALUE;
-
             for (Map.Entry<String, String> entry : servers.entrySet()) {
                 try {
-                    int playerCount = Integer.parseInt(entry.getValue());
-                    if (playerCount < minPlayers) {
-                        minPlayers = playerCount;
+                    int count = Integer.parseInt(entry.getValue());
+                    if (count < minPlayers) {
+                        minPlayers = count;
                         bestServer = entry.getKey();
                     }
-                } catch (NumberFormatException ignored) {}
+                } catch (Exception ignored) {}
             }
 
-            // 記錄路由結果並回寫 Redis 與 本地快取
+            // 記錄路由結果
             if (bestServer != null) {
-                if (playerUuid != null) {
-                    localSessionCache.put(playerUuid, bestServer);
-                    jedis.setex("player:session:" + playerUuid, 1800, bestServer); // 設定 30 分鐘有效期
-                }
+                localSessionCache.put(playerIdentifier, bestServer);
+                jedis.setex("player:session:" + playerIdentifier, 1800, bestServer);
             }
-
-            System.out.println("路由決策 -> 選擇後端: " + bestServer + " (人數: " + minPlayers + ")");
             return bestServer;
         } catch (Exception e) {
-            e.printStackTrace();
             return null;
         }
     }

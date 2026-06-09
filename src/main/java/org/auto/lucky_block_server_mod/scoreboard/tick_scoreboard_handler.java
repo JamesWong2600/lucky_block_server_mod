@@ -78,6 +78,19 @@ public class tick_scoreboard_handler {
                                 getConfig().server.id
                         );
                     }
+                    if (currentServerInfo.getSession() == 4) {
+                        EventScoreboard.updateScoreboard(
+                                player,
+                                "游戲結束",
+                                null,
+                                block_count, // 假設不顯示破壞數
+                                killCount,
+                                (int) server.getOverworld().getWorldBorder().getMaxRadius(),
+                                getGlobalPlayerAmount(),
+                                getLocalPlayerAmount(server),
+                                getConfig().server.id
+                        );
+                    }
                 }
             }
         });
